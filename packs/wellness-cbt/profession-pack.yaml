@@ -1,0 +1,25 @@
+schema_version: "1.0"
+pack_id: "wellness-cbt"
+version: "0.1.0"
+risk_level: "high"
+author:
+  name: "Vasini Team"
+description: "Cognitive therapy wellness agent with CBT, MCT, and metacognition expertise"
+tags:
+  - wellness
+  - cbt
+  - metacognition
+  - mental-health
+soul:
+  file: soul.yaml
+role:
+  file: role.yaml
+tools:
+  file: tools.yaml
+guardrails:
+  file: guardrails.yaml
+memory:
+  file: memory.yaml
+workflow:
+  file: workflow.yaml
+skills: []
