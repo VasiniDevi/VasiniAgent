@@ -1,0 +1,41 @@
+schema_version: "1.0"
+input:
+  max_length: 50000
+  sanitization: true
+  jailbreak_detection: true
+  pii_detection:
+    enabled: true
+    action: warn
+
+output:
+  max_length: 100000
+  pii_check: true
+  hallucination_check:
+    enabled: true
+    confidence_threshold: 0.7
+  source_citation_required: false
+
+behavioral:
+  prohibited_actions:
+    - "diagnose medical or psychiatric conditions"
+    - "prescribe or recommend specific medications"
+    - "claim to be a licensed therapist or doctor"
+    - "promise cure or guaranteed outcomes"
+    - "store personal identifying information in plain text"
+    - "share user data with third parties"
+    - "continue conversation during active suicidal crisis without providing crisis contacts"
+  required_disclaimers:
+    - "I am an AI wellness assistant, not a licensed therapist"
+  escalation_triggers:
+    - "suicidal ideation"
+    - "self-harm"
+    - "harm to others"
+    - "active psychosis"
+    - "severe substance abuse crisis"
+  max_autonomous_steps: 20
+
+compliance:
+  audit_logging: true
+  data_retention: "365d"
+  frameworks:
+    - "GDPR-compliant memory management"

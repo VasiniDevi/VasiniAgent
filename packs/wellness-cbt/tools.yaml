@@ -1,0 +1,64 @@
+schema_version: "1.0"
+available:
+  - id: mood_tracker
+    name: "Mood Tracker"
+    description: "Record and track user mood ratings over time"
+    sandbox:
+      timeout: 5
+      network: none
+      filesystem: scoped
+      scoped_paths: ["/data/moods"]
+    risk_level: low
+    requires_approval: false
+    audit: true
+
+  - id: thought_record
+    name: "Thought Record"
+    description: "Structured CBT thought diary with 7 columns"
+    sandbox:
+      timeout: 10
+      network: none
+      filesystem: scoped
+      scoped_paths: ["/data/records"]
+    risk_level: low
+    requires_approval: false
+    audit: true
+
+  - id: assessment
+    name: "Assessment Instrument"
+    description: "Administer PHQ-2, GAD-2, WHO-5 and score results"
+    sandbox:
+      timeout: 10
+      network: none
+      filesystem: scoped
+      scoped_paths: ["/data/assessments"]
+    risk_level: medium
+    requires_approval: false
+    audit: true
+
+  - id: exercise_guide
+    name: "Exercise Guide"
+    description: "Guide user through breathing, PMR, grounding, meditation exercises step by step"
+    sandbox:
+      timeout: 30
+      network: none
+      filesystem: none
+    risk_level: low
+    requires_approval: false
+    audit: false
+
+denied:
+  - "web_browser"
+  - "code_executor"
+  - "file_manager"
+
+tool_policies:
+  mood_tracker:
+    rate_limit: 20
+    max_retries: 2
+  thought_record:
+    rate_limit: 10
+    max_retries: 2
+  assessment:
+    rate_limit: 5
+    max_retries: 1

@@ -1,0 +1,86 @@
+schema_version: "1.0"
+default_process: adaptive
+
+sop:
+  - id: user-message
+    name: "Handle User Message"
+    trigger: "User sends text or voice message"
+    steps:
+      - id: check-safety
+        action: "Run input through Prompt Firewall (PII, jailbreak)"
+        on_success: "load-memory"
+        on_failure: "respond-safety-block"
+        timeout: 5
+
+      - id: load-memory
+        action: "Load user context: last messages, mood history, active topics, techniques tried"
+        on_success: "check-crisis"
+        on_failure: "respond-without-context"
+        timeout: 5
+
+      - id: check-crisis
+        action: "Evaluate if message contains crisis indicators (suicidal ideation, self-harm)"
+        on_success: "generate-response"
+        on_failure: "crisis-protocol"
+        timeout: 3
+
+      - id: generate-response
+        action: "Generate therapeutic response using loaded context and pack competencies"
+        on_success: "check-output"
+        on_failure: "respond-error"
+        timeout: 30
+
+      - id: check-output
+        action: "Run output through Prompt Firewall"
+        on_success: "save-memory"
+        on_failure: "regenerate"
+        timeout: 5
+
+      - id: save-memory
+        action: "Store conversation turn, extract mood rating, update active topics"
+        on_success: "send-response"
+        on_failure: "send-response"
+        timeout: 5
+
+  - id: proactive-checkin
+    name: "Proactive Check-In"
+    trigger: "Scheduler fires based on user state (every 2-6 hours)"
+    steps:
+      - id: load-user-state
+        action: "Load user memory: last mood, active topics, techniques discussed, last interaction time"
+        on_success: "determine-checkin-type"
+        on_failure: "skip-checkin"
+        timeout: 5
+
+      - id: determine-checkin-type
+        action: "Select check-in type based on state: mood, context-follow-up, technique-reminder, celebration, assessment"
+        on_success: "generate-checkin"
+        on_failure: "default-mood-check"
+        timeout: 5
+
+      - id: generate-checkin
+        action: "Generate context-aware proactive message via LLM"
+        on_success: "send-checkin"
+        on_failure: "skip-checkin"
+        timeout: 15
+
+  - id: crisis-protocol
+    name: "Crisis Response"
+    trigger: "Crisis indicators detected in user message"
+    steps:
+      - id: provide-contacts
+        action: "Send crisis contacts immediately (8-800-2000-122, local equivalents)"
+        on_success: "stay-present"
+        on_failure: "send-contacts-raw"
+        timeout: 3
+
+      - id: stay-present
+        action: "Stay in conversation, validate feelings, encourage contacting help"
+        on_success: "log-crisis"
+        on_failure: "log-crisis"
+        timeout: 60
+
+handoffs: []
+
+reporting:
+  format: json
