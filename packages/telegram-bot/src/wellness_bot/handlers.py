@@ -96,6 +96,16 @@ class WellnessBot:
         response = await self.provider.chat(messages=messages, system=system_prompt)
         reply = response.content
 
+        # Track token usage
+        usage = response.usage
+        if usage:
+            await self.store.save_token_usage(
+                user_id=user_id,
+                model=response.model,
+                input_tokens=usage.get("input_tokens", 0),
+                output_tokens=usage.get("output_tokens", 0),
+            )
+
         # Save assistant response
         await self.store.save_message(user_id, "assistant", reply)
 
