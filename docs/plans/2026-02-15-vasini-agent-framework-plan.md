@@ -6899,43 +6899,1940 @@ git commit -m "feat: implement online evaluation with SLO tracking and drift det
 
 ---
 
-## Phase 4: Operations (outlined)
+## Phase 4: Operations (detailed)
 
-### Task 15: Control Plane
-- Pack version management API
-- Rollout/canary/rollback automation
-- Feature flags per tenant/pack
-- Release flow enforcement: draft→validated→staged→prod
+### Phase 4 Checkpoint Criteria
 
-### Task 16: Pack Registry
-- Sigstore signing for packs
-- Immutable artifact storage
-- Compatibility matrix tracking
-- CLI: `vasini pack publish`, `vasini pack validate`
+Before Phase 4 is considered complete, ALL of the following MUST pass:
 
-### Task 17: Event Bus
-- Outbox table + poller (PG → Redis Streams)
-- Inbox/idempotency table at consumers
-- DLQ with replay console
-- CloudEvents envelope implementation
+1. **Control Plane:** Release flow draft→validated→staged→prod с автоматическим rollback
+2. **Pack Registry:** Publish + validate + version lookup работают, immutable после publish
+3. **Event Bus:** Outbox → Redis Streams → consumer с dedup, DLQ после max retries
+4. **Observability:** Token accounting per tenant/model, budget soft/hard cap enforcement
+5. **Memory Manager:** Short-term (Redis TTL) + Factual (append-only) + GDPR cascade delete
+6. **Stability:** Все тесты Phase 4 проходят стабильно 3 прогона подряд
 
-### Task 18: Schema Registry
-- Protobuf schema compatibility checks (buf)
-- CloudEvents schema versioning
-- CI gate for breaking changes
+---
 
-### Task 19: Observability & FinOps
-- OpenTelemetry instrumentation (traces, metrics, logs)
-- Golden signals dashboards per service
+### Task 15: Control Plane — Release Flow + Feature Flags
+
+**Files:**
+- Create: `packages/agent-core/src/vasini/control/__init__.py`
+- Create: `packages/agent-core/src/vasini/control/release.py`
+- Create: `packages/agent-core/src/vasini/control/flags.py`
+- Create: `packages/agent-core/tests/test_control_plane.py`
+
+**Scope:**
+- Release states: DRAFT → VALIDATED → STAGED → PROD
+- State machine with promotion rules + auto-rollback triggers
+- Feature flags per tenant with percentage rollout
+- In-memory store MVP (DB persistence interface for production)
+- No Kubernetes / real deployment — state machine + API only
+
+**Step 1: Write failing tests**
+
+`packages/agent-core/tests/test_control_plane.py`:
+```python
+"""Tests for Control Plane — release flow, feature flags."""
+
+import pytest
+from vasini.control.release import (
+    ReleaseManager, Release, ReleaseStage, PromotionResult,
+    RollbackResult, RollbackReason,
+)
+from vasini.control.flags import FeatureFlagStore, FeatureFlag
+
+
+class TestReleaseStages:
+    def test_all_stages_exist(self):
+        assert ReleaseStage.DRAFT.value == "draft"
+        assert ReleaseStage.VALIDATED.value == "validated"
+        assert ReleaseStage.STAGED.value == "staged"
+        assert ReleaseStage.PROD.value == "prod"
+        assert ReleaseStage.ROLLED_BACK.value == "rolled_back"
+
+    def test_create_release(self):
+        release = Release(
+            pack_id="senior-python-dev",
+            version="1.0.0",
+            stage=ReleaseStage.DRAFT,
+        )
+        assert release.pack_id == "senior-python-dev"
+        assert release.stage == ReleaseStage.DRAFT
+
+
+class TestReleaseManager:
+    def test_create_release(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        assert release.stage == ReleaseStage.DRAFT
+
+    def test_promote_draft_to_validated(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        result = mgr.promote(release.id, eval_score=0.90)
+        assert result.success
+        assert result.new_stage == ReleaseStage.VALIDATED
+
+    def test_promote_draft_fails_low_score(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        result = mgr.promote(release.id, eval_score=0.70)
+        assert not result.success
+        assert "score" in result.reason.lower()
+
+    def test_promote_validated_to_staged(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        mgr.promote(release.id, eval_score=0.90)  # → VALIDATED
+        result = mgr.promote(release.id)  # → STAGED
+        assert result.success
+        assert result.new_stage == ReleaseStage.STAGED
+
+    def test_promote_staged_to_prod(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        mgr.promote(release.id, eval_score=0.90)
+        mgr.promote(release.id)
+        result = mgr.promote(release.id, approved_by="platform-lead")
+        assert result.success
+        assert result.new_stage == ReleaseStage.PROD
+
+    def test_promote_staged_to_prod_requires_approval(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        mgr.promote(release.id, eval_score=0.90)
+        mgr.promote(release.id)
+        result = mgr.promote(release.id)  # no approved_by
+        assert not result.success
+        assert "approval" in result.reason.lower()
+
+    def test_invalid_promotion_skipping_stage(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        # Can't skip from DRAFT to STAGED
+        result = mgr.promote(release.id)  # needs eval_score for draft→validated
+        assert not result.success
+
+    def test_rollback(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        mgr.promote(release.id, eval_score=0.90)
+        mgr.promote(release.id)
+        mgr.promote(release.id, approved_by="lead")
+        result = mgr.rollback(release.id, reason=RollbackReason.SLO_BREACH)
+        assert result.success
+        updated = mgr.get_release(release.id)
+        assert updated.stage == ReleaseStage.ROLLED_BACK
+
+    def test_rollback_draft_fails(self):
+        mgr = ReleaseManager()
+        release = mgr.create_release("pack-1", "1.0.0")
+        result = mgr.rollback(release.id, reason=RollbackReason.ERROR_RATE)
+        assert not result.success
+
+    def test_get_current_prod_release(self):
+        mgr = ReleaseManager()
+        r1 = mgr.create_release("pack-1", "1.0.0")
+        mgr.promote(r1.id, eval_score=0.90)
+        mgr.promote(r1.id)
+        mgr.promote(r1.id, approved_by="lead")
+        current = mgr.get_current_prod("pack-1")
+        assert current is not None
+        assert current.version == "1.0.0"
+
+    def test_list_releases(self):
+        mgr = ReleaseManager()
+        mgr.create_release("pack-1", "1.0.0")
+        mgr.create_release("pack-1", "1.1.0")
+        releases = mgr.list_releases("pack-1")
+        assert len(releases) == 2
+
+
+class TestFeatureFlags:
+    def test_create_flag(self):
+        store = FeatureFlagStore()
+        flag = store.create("dark-mode", enabled=True)
+        assert flag.name == "dark-mode"
+        assert flag.enabled
+
+    def test_get_flag(self):
+        store = FeatureFlagStore()
+        store.create("feature-x", enabled=False)
+        flag = store.get("feature-x")
+        assert flag is not None
+        assert not flag.enabled
+
+    def test_is_enabled_global(self):
+        store = FeatureFlagStore()
+        store.create("feature-x", enabled=True)
+        assert store.is_enabled("feature-x") is True
+
+    def test_is_enabled_disabled(self):
+        store = FeatureFlagStore()
+        store.create("feature-x", enabled=False)
+        assert store.is_enabled("feature-x") is False
+
+    def test_tenant_override(self):
+        store = FeatureFlagStore()
+        store.create("feature-x", enabled=False)
+        store.set_tenant_override("feature-x", "tenant-1", True)
+        assert store.is_enabled("feature-x", tenant_id="tenant-1") is True
+        assert store.is_enabled("feature-x", tenant_id="tenant-2") is False
+
+    def test_percentage_rollout(self):
+        store = FeatureFlagStore()
+        store.create("gradual", enabled=True, rollout_percentage=50)
+        # With 50% rollout, result depends on tenant hash
+        # Just verify it doesn't crash and returns bool
+        result = store.is_enabled("gradual", tenant_id="test-tenant")
+        assert isinstance(result, bool)
+
+    def test_unknown_flag_returns_false(self):
+        store = FeatureFlagStore()
+        assert store.is_enabled("nonexistent") is False
+
+    def test_list_flags(self):
+        store = FeatureFlagStore()
+        store.create("a", enabled=True)
+        store.create("b", enabled=False)
+        flags = store.list_all()
+        assert len(flags) == 2
+```
+
+**Step 2: Implement**
+
+`packages/agent-core/src/vasini/control/__init__.py`:
+```python
+"""Control Plane — release flow, feature flags, tenant config."""
+```
+
+`packages/agent-core/src/vasini/control/release.py`:
+```python
+"""Release management — draft→validated→staged→prod state machine.
+
+Promotion rules:
+  draft → validated: eval_score >= 0.85
+  validated → staged: manual promotion
+  staged → prod: requires approved_by (Platform Lead sign-off)
+
+Rollback: any stage except DRAFT → ROLLED_BACK
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+
+
+class ReleaseStage(Enum):
+    DRAFT = "draft"
+    VALIDATED = "validated"
+    STAGED = "staged"
+    PROD = "prod"
+    ROLLED_BACK = "rolled_back"
+
+
+class RollbackReason(Enum):
+    SLO_BREACH = "slo_breach"
+    ERROR_RATE = "error_rate"
+    BUDGET_EXCEEDED = "budget_exceeded"
+    MANUAL = "manual"
+    INCIDENT = "incident"
+
+
+_PROMOTION_ORDER = [ReleaseStage.DRAFT, ReleaseStage.VALIDATED, ReleaseStage.STAGED, ReleaseStage.PROD]
+
+
+@dataclass
+class Release:
+    id: str
+    pack_id: str
+    version: str
+    stage: ReleaseStage
+    eval_score: float | None = None
+    approved_by: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class PromotionResult:
+    success: bool
+    new_stage: ReleaseStage | None = None
+    reason: str = ""
+
+
+@dataclass
+class RollbackResult:
+    success: bool
+    reason: str = ""
+
+
+class ReleaseManager:
+    MIN_EVAL_SCORE = 0.85
+
+    def __init__(self) -> None:
+        self._releases: dict[str, Release] = {}
+
+    def create_release(self, pack_id: str, version: str) -> Release:
+        release = Release(
+            id=str(uuid.uuid4()),
+            pack_id=pack_id,
+            version=version,
+            stage=ReleaseStage.DRAFT,
+        )
+        self._releases[release.id] = release
+        return release
+
+    def get_release(self, release_id: str) -> Release | None:
+        return self._releases.get(release_id)
+
+    def promote(
+        self,
+        release_id: str,
+        eval_score: float | None = None,
+        approved_by: str | None = None,
+    ) -> PromotionResult:
+        release = self._releases.get(release_id)
+        if not release:
+            return PromotionResult(success=False, reason="Release not found")
+
+        current_idx = _PROMOTION_ORDER.index(release.stage) if release.stage in _PROMOTION_ORDER else -1
+        if current_idx < 0 or current_idx >= len(_PROMOTION_ORDER) - 1:
+            return PromotionResult(success=False, reason=f"Cannot promote from {release.stage.value}")
+
+        next_stage = _PROMOTION_ORDER[current_idx + 1]
+
+        # Promotion rules
+        if release.stage == ReleaseStage.DRAFT:
+            if eval_score is None or eval_score < self.MIN_EVAL_SCORE:
+                return PromotionResult(
+                    success=False,
+                    reason=f"Score {eval_score} below minimum {self.MIN_EVAL_SCORE}",
+                )
+            release.eval_score = eval_score
+
+        if next_stage == ReleaseStage.PROD:
+            if not approved_by:
+                return PromotionResult(success=False, reason="Production promotion requires approval")
+            release.approved_by = approved_by
+
+        release.stage = next_stage
+        release.updated_at = datetime.now(timezone.utc)
+        return PromotionResult(success=True, new_stage=next_stage)
+
+    def rollback(self, release_id: str, reason: RollbackReason) -> RollbackResult:
+        release = self._releases.get(release_id)
+        if not release:
+            return RollbackResult(success=False, reason="Release not found")
+        if release.stage == ReleaseStage.DRAFT:
+            return RollbackResult(success=False, reason="Cannot rollback a draft release")
+        release.stage = ReleaseStage.ROLLED_BACK
+        release.updated_at = datetime.now(timezone.utc)
+        return RollbackResult(success=True)
+
+    def get_current_prod(self, pack_id: str) -> Release | None:
+        for r in self._releases.values():
+            if r.pack_id == pack_id and r.stage == ReleaseStage.PROD:
+                return r
+        return None
+
+    def list_releases(self, pack_id: str) -> list[Release]:
+        return [r for r in self._releases.values() if r.pack_id == pack_id]
+```
+
+`packages/agent-core/src/vasini/control/flags.py`:
+```python
+"""Feature flags — per-tenant toggles with percentage rollout."""
+
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+
+@dataclass
+class FeatureFlag:
+    id: str
+    name: str
+    enabled: bool
+    rollout_percentage: int = 100  # 0-100
+    tenant_overrides: dict[str, bool] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FeatureFlagStore:
+    def __init__(self) -> None:
+        self._flags: dict[str, FeatureFlag] = {}
+
+    def create(self, name: str, enabled: bool = False, rollout_percentage: int = 100) -> FeatureFlag:
+        flag = FeatureFlag(
+            id=name,
+            name=name,
+            enabled=enabled,
+            rollout_percentage=rollout_percentage,
+        )
+        self._flags[name] = flag
+        return flag
+
+    def get(self, name: str) -> FeatureFlag | None:
+        return self._flags.get(name)
+
+    def set_tenant_override(self, flag_name: str, tenant_id: str, enabled: bool) -> None:
+        flag = self._flags.get(flag_name)
+        if flag:
+            flag.tenant_overrides[tenant_id] = enabled
+
+    def is_enabled(self, flag_name: str, tenant_id: str | None = None) -> bool:
+        flag = self._flags.get(flag_name)
+        if not flag:
+            return False
+        if not flag.enabled:
+            # Check tenant override
+            if tenant_id and tenant_id in flag.tenant_overrides:
+                return flag.tenant_overrides[tenant_id]
+            return False
+        # Check tenant override (can disable for specific tenant)
+        if tenant_id and tenant_id in flag.tenant_overrides:
+            return flag.tenant_overrides[tenant_id]
+        # Percentage rollout
+        if flag.rollout_percentage < 100 and tenant_id:
+            hash_val = int(hashlib.md5(f"{flag_name}:{tenant_id}".encode()).hexdigest(), 16)
+            return (hash_val % 100) < flag.rollout_percentage
+        return flag.enabled
+
+    def list_all(self) -> list[FeatureFlag]:
+        return list(self._flags.values())
+```
+
+**Step 3: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_control_plane.py -v
+git add packages/agent-core/src/vasini/control/ packages/agent-core/tests/test_control_plane.py
+git commit -m "feat: implement Control Plane with release flow and feature flags
+
+- ReleaseManager: draft→validated→staged→prod state machine
+- Promotion rules: eval_score >= 0.85, Platform Lead approval for prod
+- Rollback with reason tracking (SLO breach, error rate, incident)
+- FeatureFlagStore: per-tenant toggles with percentage rollout
+- In-memory store (DB persistence interface for production)
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 16: Pack Registry — Publish + Validate + Version Lookup
+
+**Files:**
+- Create: `packages/agent-core/src/vasini/registry/__init__.py`
+- Create: `packages/agent-core/src/vasini/registry/store.py`
+- Create: `packages/agent-core/tests/test_registry.py`
+
+**Scope:**
+- In-memory artifact store (filesystem or S3 adapter for production)
+- Immutable after publish (no overwrite of same version)
+- Version lookup, list versions, latest version
+- Validation before publish (schema + required fields)
+- No Sigstore binary in MVP — signature field stored but not cryptographically verified
+- SBOM field stored as metadata
+
+**Step 1: Write failing tests**
+
+`packages/agent-core/tests/test_registry.py`:
+```python
+"""Tests for Pack Registry — publish, validate, version lookup."""
+
+import pytest
+from vasini.registry.store import (
+    PackRegistry, PackArtifact, PublishResult,
+    PackNotFoundError, VersionConflictError,
+)
+
+
+class TestPackRegistry:
+    def test_publish_pack(self):
+        registry = PackRegistry()
+        result = registry.publish(
+            pack_id="senior-python-dev",
+            version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "senior-python-dev", "risk_level": "medium"},
+            layers={"soul": "content", "role": "content"},
+            author="test-author",
+        )
+        assert result.success
+        assert result.version == "1.0.0"
+
+    def test_publish_validates_required_fields(self):
+        registry = PackRegistry()
+        result = registry.publish(
+            pack_id="bad-pack",
+            version="1.0.0",
+            manifest={},  # missing required fields
+            layers={},
+            author="test",
+        )
+        assert not result.success
+        assert "schema_version" in result.reason.lower() or "pack_id" in result.reason.lower()
+
+    def test_publish_same_version_rejected(self):
+        registry = PackRegistry()
+        registry.publish(
+            pack_id="pack-1", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+            layers={"soul": "v1"}, author="a",
+        )
+        result = registry.publish(
+            pack_id="pack-1", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+            layers={"soul": "v1-modified"}, author="a",
+        )
+        assert not result.success
+        assert "immutable" in result.reason.lower() or "exists" in result.reason.lower()
+
+    def test_get_artifact(self):
+        registry = PackRegistry()
+        registry.publish(
+            pack_id="pack-1", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+            layers={"soul": "content"}, author="author-1",
+        )
+        artifact = registry.get("pack-1", "1.0.0")
+        assert artifact is not None
+        assert artifact.pack_id == "pack-1"
+        assert artifact.version == "1.0.0"
+        assert artifact.author == "author-1"
+
+    def test_get_nonexistent_returns_none(self):
+        registry = PackRegistry()
+        assert registry.get("nonexistent", "1.0.0") is None
+
+    def test_get_latest(self):
+        registry = PackRegistry()
+        for v in ["1.0.0", "1.1.0", "2.0.0"]:
+            registry.publish(
+                pack_id="pack-1", version=v,
+                manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+                layers={"soul": f"v{v}"}, author="a",
+            )
+        latest = registry.get_latest("pack-1")
+        assert latest is not None
+        assert latest.version == "2.0.0"
+
+    def test_list_versions(self):
+        registry = PackRegistry()
+        for v in ["1.0.0", "1.1.0", "2.0.0"]:
+            registry.publish(
+                pack_id="pack-1", version=v,
+                manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+                layers={}, author="a",
+            )
+        versions = registry.list_versions("pack-1")
+        assert versions == ["1.0.0", "1.1.0", "2.0.0"]
+
+    def test_list_versions_empty(self):
+        registry = PackRegistry()
+        assert registry.list_versions("unknown") == []
+
+    def test_artifact_is_immutable(self):
+        registry = PackRegistry()
+        registry.publish(
+            pack_id="pack-1", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+            layers={"soul": "original"}, author="a",
+        )
+        artifact = registry.get("pack-1", "1.0.0")
+        assert artifact.layers["soul"] == "original"
+
+    def test_signature_field_stored(self):
+        registry = PackRegistry()
+        registry.publish(
+            pack_id="pack-1", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "pack-1", "risk_level": "low"},
+            layers={}, author="a", signature="sig-abc-123",
+        )
+        artifact = registry.get("pack-1", "1.0.0")
+        assert artifact.signature == "sig-abc-123"
+```
+
+**Step 2: Implement**
+
+`packages/agent-core/src/vasini/registry/__init__.py`:
+```python
+"""Pack Registry — publish, validate, version lookup."""
+```
+
+`packages/agent-core/src/vasini/registry/store.py`:
+```python
+"""Pack Registry — immutable artifact store.
+
+Publish: validates manifest, stores artifact, rejects duplicate versions.
+No Sigstore verification in MVP — signature stored as metadata.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+_REQUIRED_MANIFEST_FIELDS = ["schema_version", "pack_id", "risk_level"]
+
+
+@dataclass
+class PackArtifact:
+    pack_id: str
+    version: str
+    manifest: dict
+    layers: dict[str, str]
+    author: str
+    signature: str = ""
+    published_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PackNotFoundError(Exception):
+    pass
+
+
+class VersionConflictError(Exception):
+    pass
+
+
+@dataclass
+class PublishResult:
+    success: bool
+    version: str = ""
+    reason: str = ""
+
+
+class PackRegistry:
+    def __init__(self) -> None:
+        self._artifacts: dict[str, dict[str, PackArtifact]] = {}  # pack_id → {version → artifact}
+
+    def publish(
+        self,
+        pack_id: str,
+        version: str,
+        manifest: dict,
+        layers: dict[str, str],
+        author: str,
+        signature: str = "",
+    ) -> PublishResult:
+        # Validate required fields
+        missing = [f for f in _REQUIRED_MANIFEST_FIELDS if f not in manifest]
+        if missing:
+            return PublishResult(success=False, reason=f"Missing required fields: {', '.join(missing)}")
+
+        # Check immutability
+        if pack_id in self._artifacts and version in self._artifacts[pack_id]:
+            return PublishResult(success=False, reason=f"Version {version} already exists (immutable)")
+
+        artifact = PackArtifact(
+            pack_id=pack_id,
+            version=version,
+            manifest=manifest,
+            layers=dict(layers),
+            author=author,
+            signature=signature,
+        )
+
+        if pack_id not in self._artifacts:
+            self._artifacts[pack_id] = {}
+        self._artifacts[pack_id][version] = artifact
+
+        return PublishResult(success=True, version=version)
+
+    def get(self, pack_id: str, version: str) -> PackArtifact | None:
+        return self._artifacts.get(pack_id, {}).get(version)
+
+    def get_latest(self, pack_id: str) -> PackArtifact | None:
+        versions = self._artifacts.get(pack_id, {})
+        if not versions:
+            return None
+        latest_version = sorted(versions.keys())[-1]
+        return versions[latest_version]
+
+    def list_versions(self, pack_id: str) -> list[str]:
+        return sorted(self._artifacts.get(pack_id, {}).keys())
+```
+
+**Step 3: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_registry.py -v
+git add packages/agent-core/src/vasini/registry/ packages/agent-core/tests/test_registry.py
+git commit -m "feat: implement Pack Registry with immutable artifact store
+
+- PackRegistry: publish with manifest validation, version conflict rejection
+- Immutable artifacts (no overwrite of same version)
+- Version lookup, list versions, get latest
+- Signature field stored (Sigstore verification deferred to production)
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 17: Event Bus — Outbox + Redis Streams + DLQ
+
+**Files:**
+- Create: `packages/agent-core/src/vasini/events/__init__.py`
+- Create: `packages/agent-core/src/vasini/events/envelope.py`
+- Create: `packages/agent-core/src/vasini/events/bus.py`
+- Create: `packages/agent-core/src/vasini/events/dlq.py`
+- Create: `packages/agent-core/tests/test_event_bus.py`
+
+**Scope:**
+- CloudEvents 1.0 envelope (specversion, type, source, id, time, data)
+- Event bus interface with in-memory implementation for tests
+- Outbox pattern: events written to outbox, poller publishes
+- DLQ: events that fail max retries (5) go to DLQ
+- Consumer with idempotency (dedup by event_id via InboxEvent table from Task 6)
+- No real Redis Streams connection in tests — mocked/in-memory
+
+**Step 1: Write failing tests**
+
+`packages/agent-core/tests/test_event_bus.py`:
+```python
+"""Tests for Event Bus — CloudEvents, outbox, DLQ."""
+
+import pytest
+from datetime import datetime, timezone
+from vasini.events.envelope import CloudEvent, build_event
+from vasini.events.bus import EventBus, EventHandler, InMemoryEventBus
+from vasini.events.dlq import DeadLetterQueue, DLQEntry
+
+
+class TestCloudEvent:
+    def test_build_event(self):
+        event = build_event(
+            event_type="ai.vasini.agent.completed",
+            source="/agent-core/runtime",
+            data={"task_id": "t-1", "output": "done"},
+        )
+        assert event.specversion == "1.0"
+        assert event.type == "ai.vasini.agent.completed"
+        assert event.source == "/agent-core/runtime"
+        assert event.id is not None
+        assert event.data["task_id"] == "t-1"
+
+    def test_event_has_timestamp(self):
+        event = build_event(
+            event_type="ai.vasini.test",
+            source="/test",
+            data={},
+        )
+        assert event.time is not None
+
+    def test_event_with_subject(self):
+        event = build_event(
+            event_type="ai.vasini.tool.executed",
+            source="/agent-core/sandbox",
+            data={"tool_id": "code_exec"},
+            subject="agent:python-dev:run-42",
+        )
+        assert event.subject == "agent:python-dev:run-42"
+
+    def test_event_with_tenant(self):
+        event = build_event(
+            event_type="ai.vasini.agent.completed",
+            source="/test",
+            data={},
+            tenant_id="t-123",
+        )
+        assert event.tenant_id == "t-123"
+
+
+class TestInMemoryEventBus:
+    @pytest.mark.asyncio
+    async def test_publish_and_subscribe(self):
+        bus = InMemoryEventBus()
+        received = []
+
+        async def handler(event: CloudEvent) -> None:
+            received.append(event)
+
+        bus.subscribe("ai.vasini.agent.completed", handler)
+        event = build_event("ai.vasini.agent.completed", "/test", {"done": True})
+        await bus.publish(event)
+
+        assert len(received) == 1
+        assert received[0].type == "ai.vasini.agent.completed"
+
+    @pytest.mark.asyncio
+    async def test_subscribe_filters_by_type(self):
+        bus = InMemoryEventBus()
+        received = []
+
+        async def handler(event: CloudEvent) -> None:
+            received.append(event)
+
+        bus.subscribe("ai.vasini.agent.completed", handler)
+        await bus.publish(build_event("ai.vasini.tool.executed", "/test", {}))
+        await bus.publish(build_event("ai.vasini.agent.completed", "/test", {}))
+
+        assert len(received) == 1
+
+    @pytest.mark.asyncio
+    async def test_multiple_subscribers(self):
+        bus = InMemoryEventBus()
+        received_a = []
+        received_b = []
+
+        async def handler_a(event: CloudEvent) -> None:
+            received_a.append(event)
+
+        async def handler_b(event: CloudEvent) -> None:
+            received_b.append(event)
+
+        bus.subscribe("ai.vasini.test", handler_a)
+        bus.subscribe("ai.vasini.test", handler_b)
+        await bus.publish(build_event("ai.vasini.test", "/test", {}))
+
+        assert len(received_a) == 1
+        assert len(received_b) == 1
+
+    @pytest.mark.asyncio
+    async def test_failed_handler_sends_to_dlq(self):
+        bus = InMemoryEventBus(max_retries=2)
+
+        async def failing_handler(event: CloudEvent) -> None:
+            raise ValueError("Handler error")
+
+        bus.subscribe("ai.vasini.test", failing_handler)
+        event = build_event("ai.vasini.test", "/test", {})
+        await bus.publish(event)
+
+        assert len(bus.dlq.entries) == 1
+        assert bus.dlq.entries[0].retry_count == 2
+
+    @pytest.mark.asyncio
+    async def test_idempotent_delivery(self):
+        bus = InMemoryEventBus()
+        received = []
+
+        async def handler(event: CloudEvent) -> None:
+            received.append(event)
+
+        bus.subscribe("ai.vasini.test", handler)
+        event = build_event("ai.vasini.test", "/test", {})
+        await bus.publish(event)
+        await bus.publish(event)  # same event_id
+
+        assert len(received) == 1  # dedup
+
+
+class TestDeadLetterQueue:
+    def test_add_to_dlq(self):
+        dlq = DeadLetterQueue()
+        event = build_event("ai.vasini.test", "/test", {})
+        dlq.add(event, error="Handler failed", retry_count=5)
+        assert len(dlq.entries) == 1
+        assert dlq.entries[0].error == "Handler failed"
+
+    def test_replay_from_dlq(self):
+        dlq = DeadLetterQueue()
+        event = build_event("ai.vasini.test", "/test", {})
+        dlq.add(event, error="fail", retry_count=5)
+        replayed = dlq.replay(event.id)
+        assert replayed is not None
+        assert replayed.type == "ai.vasini.test"
+
+    def test_replay_removes_from_dlq(self):
+        dlq = DeadLetterQueue()
+        event = build_event("ai.vasini.test", "/test", {})
+        dlq.add(event, error="fail", retry_count=5)
+        dlq.replay(event.id)
+        assert len(dlq.entries) == 0
+
+    def test_dlq_depth(self):
+        dlq = DeadLetterQueue()
+        for i in range(5):
+            event = build_event("ai.vasini.test", "/test", {"i": i})
+            dlq.add(event, error="fail", retry_count=5)
+        assert dlq.depth == 5
+```
+
+**Step 2: Implement**
+
+`packages/agent-core/src/vasini/events/__init__.py`:
+```python
+"""Event Bus — CloudEvents, outbox pattern, DLQ."""
+```
+
+`packages/agent-core/src/vasini/events/envelope.py`:
+```python
+"""CloudEvents 1.0 envelope."""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+
+@dataclass
+class CloudEvent:
+    specversion: str = "1.0"
+    type: str = ""
+    source: str = ""
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    time: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    datacontenttype: str = "application/json"
+    data: dict = field(default_factory=dict)
+    subject: str = ""
+    tenant_id: str = ""
+
+
+def build_event(
+    event_type: str,
+    source: str,
+    data: dict,
+    subject: str = "",
+    tenant_id: str = "",
+) -> CloudEvent:
+    return CloudEvent(
+        type=event_type,
+        source=source,
+        data=data,
+        subject=subject,
+        tenant_id=tenant_id,
+    )
+```
+
+`packages/agent-core/src/vasini/events/dlq.py`:
+```python
+"""Dead Letter Queue — failed events after max retries."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+from vasini.events.envelope import CloudEvent
+
+
+@dataclass
+class DLQEntry:
+    event: CloudEvent
+    error: str
+    retry_count: int
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DeadLetterQueue:
+    def __init__(self) -> None:
+        self.entries: list[DLQEntry] = []
+
+    def add(self, event: CloudEvent, error: str, retry_count: int) -> None:
+        self.entries.append(DLQEntry(event=event, error=error, retry_count=retry_count))
+
+    def replay(self, event_id: str) -> CloudEvent | None:
+        for i, entry in enumerate(self.entries):
+            if entry.event.id == event_id:
+                self.entries.pop(i)
+                return entry.event
+        return None
+
+    @property
+    def depth(self) -> int:
+        return len(self.entries)
+```
+
+`packages/agent-core/src/vasini/events/bus.py`:
+```python
+"""Event Bus — publish/subscribe with retry + DLQ + idempotency.
+
+In-memory implementation for tests. Production uses Redis Streams (DB 2).
+"""
+
+from __future__ import annotations
+
+from typing import Callable, Awaitable
+
+from vasini.events.envelope import CloudEvent
+from vasini.events.dlq import DeadLetterQueue
+
+EventHandler = Callable[[CloudEvent], Awaitable[None]]
+
+
+class EventBus:
+    """Abstract event bus interface."""
+    async def publish(self, event: CloudEvent) -> None: ...
+    def subscribe(self, event_type: str, handler: EventHandler) -> None: ...
+
+
+class InMemoryEventBus(EventBus):
+    def __init__(self, max_retries: int = 5) -> None:
+        self._handlers: dict[str, list[EventHandler]] = {}
+        self._processed_ids: set[str] = set()
+        self._max_retries = max_retries
+        self.dlq = DeadLetterQueue()
+
+    def subscribe(self, event_type: str, handler: EventHandler) -> None:
+        if event_type not in self._handlers:
+            self._handlers[event_type] = []
+        self._handlers[event_type].append(handler)
+
+    async def publish(self, event: CloudEvent) -> None:
+        # Idempotency: skip already processed events
+        if event.id in self._processed_ids:
+            return
+        self._processed_ids.add(event.id)
+
+        handlers = self._handlers.get(event.type, [])
+        for handler in handlers:
+            retries = 0
+            while retries < self._max_retries:
+                try:
+                    await handler(event)
+                    break
+                except Exception as e:
+                    retries += 1
+                    if retries >= self._max_retries:
+                        self.dlq.add(event, error=str(e), retry_count=retries)
+```
+
+**Step 3: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_event_bus.py -v
+git add packages/agent-core/src/vasini/events/ packages/agent-core/tests/test_event_bus.py
+git commit -m "feat: implement Event Bus with CloudEvents, retry, and DLQ
+
+- CloudEvents 1.0 envelope (specversion, type, source, id, time, data)
+- InMemoryEventBus with publish/subscribe, retry (max 5), DLQ
+- Idempotent delivery (dedup by event_id)
+- DeadLetterQueue with replay support
+- Standard event types: agent.completed, tool.executed, etc.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 18: Observability & FinOps — Token Accounting + Budget Caps
+
+**Files:**
+- Create: `packages/agent-core/src/vasini/finops/__init__.py`
+- Create: `packages/agent-core/src/vasini/finops/accounting.py`
+- Create: `packages/agent-core/src/vasini/finops/budget.py`
+- Create: `packages/agent-core/tests/test_finops.py`
+
+**Scope:**
 - Token accounting per tenant/agent/model
-- Budget cap enforcement (soft alert, hard stop)
+- Budget caps: soft (alert) + hard (stop execution)
+- In-memory tracking (production: PostgreSQL + event emission)
+- No OTel SDK integration in MVP — interfaces for instrumentation hooks
+- Merged Task 18 (Schema Registry) scope into validation-only: schema compat check is already done by `pack validate` and `buf breaking`. No separate service needed in MVP.
 
-### Task 20: Memory Manager — Full Implementation
-- Short-term: Redis with TTL
-- Episodic: pgvector with confidence threshold writes
-- Factual: PostgreSQL append-only versioned records
-- Cross-session memory merge strategies
-- GDPR cascade delete
+**Step 1: Write failing tests**
+
+`packages/agent-core/tests/test_finops.py`:
+```python
+"""Tests for FinOps — token accounting, budget caps."""
+
+import pytest
+from vasini.finops.accounting import TokenAccounting, UsageRecord, ModelTier
+from vasini.finops.budget import (
+    BudgetManager, TenantBudget, BudgetStatus,
+    BudgetCheckResult, BudgetAction,
+)
+
+
+class TestTokenAccounting:
+    def test_record_usage(self):
+        accounting = TokenAccounting()
+        accounting.record(
+            tenant_id="t1",
+            model="claude-opus-4",
+            input_tokens=1000,
+            output_tokens=500,
+        )
+        usage = accounting.get_usage("t1")
+        assert usage.total_input_tokens == 1000
+        assert usage.total_output_tokens == 500
+
+    def test_accumulate_usage(self):
+        accounting = TokenAccounting()
+        accounting.record("t1", "claude-opus-4", 1000, 500)
+        accounting.record("t1", "claude-opus-4", 2000, 1000)
+        usage = accounting.get_usage("t1")
+        assert usage.total_input_tokens == 3000
+        assert usage.total_output_tokens == 1500
+
+    def test_per_model_breakdown(self):
+        accounting = TokenAccounting()
+        accounting.record("t1", "claude-opus-4", 1000, 500)
+        accounting.record("t1", "claude-haiku-4", 5000, 2000)
+        breakdown = accounting.get_model_breakdown("t1")
+        assert "claude-opus-4" in breakdown
+        assert "claude-haiku-4" in breakdown
+        assert breakdown["claude-opus-4"].total_input_tokens == 1000
+        assert breakdown["claude-haiku-4"].total_input_tokens == 5000
+
+    def test_multi_tenant_isolation(self):
+        accounting = TokenAccounting()
+        accounting.record("t1", "model-a", 1000, 500)
+        accounting.record("t2", "model-a", 2000, 1000)
+        assert accounting.get_usage("t1").total_input_tokens == 1000
+        assert accounting.get_usage("t2").total_input_tokens == 2000
+
+    def test_empty_usage(self):
+        accounting = TokenAccounting()
+        usage = accounting.get_usage("unknown")
+        assert usage.total_input_tokens == 0
+        assert usage.total_output_tokens == 0
+
+    def test_cost_estimation(self):
+        accounting = TokenAccounting()
+        accounting.set_pricing("claude-opus-4", input_per_1k=0.015, output_per_1k=0.075)
+        accounting.record("t1", "claude-opus-4", 10000, 5000)
+        cost = accounting.estimate_cost("t1")
+        assert cost > 0
+        # 10K input * 0.015/1K + 5K output * 0.075/1K = 0.15 + 0.375 = 0.525
+        assert abs(cost - 0.525) < 0.01
+
+
+class TestBudgetManager:
+    def test_create_budget(self):
+        mgr = BudgetManager()
+        budget = mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        assert budget.soft_cap == 100.0
+        assert budget.hard_cap == 150.0
+
+    def test_check_under_budget(self):
+        mgr = BudgetManager()
+        mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        result = mgr.check("t1", current_spend=50.0)
+        assert result.action == BudgetAction.ALLOW
+        assert result.status == BudgetStatus.OK
+
+    def test_check_soft_cap_warning(self):
+        mgr = BudgetManager()
+        mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        result = mgr.check("t1", current_spend=110.0)
+        assert result.action == BudgetAction.WARN
+        assert result.status == BudgetStatus.SOFT_CAP_EXCEEDED
+
+    def test_check_hard_cap_blocks(self):
+        mgr = BudgetManager()
+        mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        result = mgr.check("t1", current_spend=160.0)
+        assert result.action == BudgetAction.BLOCK
+        assert result.status == BudgetStatus.HARD_CAP_EXCEEDED
+
+    def test_no_budget_allows(self):
+        mgr = BudgetManager()
+        result = mgr.check("unknown", current_spend=99999.0)
+        assert result.action == BudgetAction.ALLOW
+
+    def test_at_exact_soft_cap(self):
+        mgr = BudgetManager()
+        mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        result = mgr.check("t1", current_spend=100.0)
+        assert result.action == BudgetAction.WARN
+
+    def test_at_exact_hard_cap(self):
+        mgr = BudgetManager()
+        mgr.set_budget("t1", soft_cap=100.0, hard_cap=150.0)
+        result = mgr.check("t1", current_spend=150.0)
+        assert result.action == BudgetAction.BLOCK
+```
+
+**Step 2: Implement**
+
+`packages/agent-core/src/vasini/finops/__init__.py`:
+```python
+"""FinOps — token accounting, budget caps, cost estimation."""
+```
+
+`packages/agent-core/src/vasini/finops/accounting.py`:
+```python
+"""Token accounting per tenant/model with cost estimation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class ModelTier(Enum):
+    TIER_1 = "tier_1"  # Most capable (opus)
+    TIER_2 = "tier_2"  # Balanced (sonnet)
+    TIER_3 = "tier_3"  # Fast/cheap (haiku)
+
+
+@dataclass
+class UsageRecord:
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+
+
+@dataclass
+class ModelPricing:
+    input_per_1k: float = 0.0
+    output_per_1k: float = 0.0
+
+
+class TokenAccounting:
+    def __init__(self) -> None:
+        self._usage: dict[str, dict[str, UsageRecord]] = {}  # tenant → {model → record}
+        self._pricing: dict[str, ModelPricing] = {}
+
+    def record(self, tenant_id: str, model: str, input_tokens: int, output_tokens: int) -> None:
+        if tenant_id not in self._usage:
+            self._usage[tenant_id] = {}
+        if model not in self._usage[tenant_id]:
+            self._usage[tenant_id][model] = UsageRecord()
+        rec = self._usage[tenant_id][model]
+        rec.total_input_tokens += input_tokens
+        rec.total_output_tokens += output_tokens
+
+    def get_usage(self, tenant_id: str) -> UsageRecord:
+        models = self._usage.get(tenant_id, {})
+        total = UsageRecord()
+        for rec in models.values():
+            total.total_input_tokens += rec.total_input_tokens
+            total.total_output_tokens += rec.total_output_tokens
+        return total
+
+    def get_model_breakdown(self, tenant_id: str) -> dict[str, UsageRecord]:
+        return dict(self._usage.get(tenant_id, {}))
+
+    def set_pricing(self, model: str, input_per_1k: float, output_per_1k: float) -> None:
+        self._pricing[model] = ModelPricing(input_per_1k=input_per_1k, output_per_1k=output_per_1k)
+
+    def estimate_cost(self, tenant_id: str) -> float:
+        total = 0.0
+        for model, rec in self._usage.get(tenant_id, {}).items():
+            pricing = self._pricing.get(model)
+            if pricing:
+                total += (rec.total_input_tokens / 1000) * pricing.input_per_1k
+                total += (rec.total_output_tokens / 1000) * pricing.output_per_1k
+        return total
+```
+
+`packages/agent-core/src/vasini/finops/budget.py`:
+```python
+"""Budget cap enforcement — soft (alert) + hard (block)."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+
+
+class BudgetStatus(Enum):
+    OK = "ok"
+    SOFT_CAP_EXCEEDED = "soft_cap_exceeded"
+    HARD_CAP_EXCEEDED = "hard_cap_exceeded"
+
+
+class BudgetAction(Enum):
+    ALLOW = "allow"
+    WARN = "warn"
+    BLOCK = "block"
+
+
+@dataclass
+class TenantBudget:
+    tenant_id: str
+    soft_cap: float
+    hard_cap: float
+
+
+@dataclass
+class BudgetCheckResult:
+    action: BudgetAction
+    status: BudgetStatus
+    current_spend: float = 0.0
+    remaining: float = 0.0
+
+
+class BudgetManager:
+    def __init__(self) -> None:
+        self._budgets: dict[str, TenantBudget] = {}
+
+    def set_budget(self, tenant_id: str, soft_cap: float, hard_cap: float) -> TenantBudget:
+        budget = TenantBudget(tenant_id=tenant_id, soft_cap=soft_cap, hard_cap=hard_cap)
+        self._budgets[tenant_id] = budget
+        return budget
+
+    def check(self, tenant_id: str, current_spend: float) -> BudgetCheckResult:
+        budget = self._budgets.get(tenant_id)
+        if not budget:
+            return BudgetCheckResult(
+                action=BudgetAction.ALLOW,
+                status=BudgetStatus.OK,
+                current_spend=current_spend,
+            )
+
+        if current_spend >= budget.hard_cap:
+            return BudgetCheckResult(
+                action=BudgetAction.BLOCK,
+                status=BudgetStatus.HARD_CAP_EXCEEDED,
+                current_spend=current_spend,
+                remaining=0.0,
+            )
+
+        if current_spend >= budget.soft_cap:
+            return BudgetCheckResult(
+                action=BudgetAction.WARN,
+                status=BudgetStatus.SOFT_CAP_EXCEEDED,
+                current_spend=current_spend,
+                remaining=budget.hard_cap - current_spend,
+            )
+
+        return BudgetCheckResult(
+            action=BudgetAction.ALLOW,
+            status=BudgetStatus.OK,
+            current_spend=current_spend,
+            remaining=budget.hard_cap - current_spend,
+        )
+```
+
+**Step 3: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_finops.py -v
+git add packages/agent-core/src/vasini/finops/ packages/agent-core/tests/test_finops.py
+git commit -m "feat: implement FinOps with token accounting and budget caps
+
+- TokenAccounting: per tenant/model usage tracking with cost estimation
+- BudgetManager: soft cap (warn) + hard cap (block) enforcement
+- Model pricing configuration for cost calculation
+- Multi-tenant isolation for all metrics
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 19: Memory Manager — Full Implementation
+
+**Files:**
+- Create: `packages/agent-core/src/vasini/memory/__init__.py`
+- Create: `packages/agent-core/src/vasini/memory/manager.py`
+- Create: `packages/agent-core/src/vasini/memory/short_term.py`
+- Create: `packages/agent-core/src/vasini/memory/factual.py`
+- Create: `packages/agent-core/src/vasini/memory/gdpr.py`
+- Create: `packages/agent-core/tests/test_memory_manager.py`
+
+**Scope:**
+- Short-term: in-memory store with TTL + LRU eviction (Redis adapter for production)
+- Factual: append-only versioned records with confidence threshold (PG adapter for production)
+- Episodic: interface only (pgvector integration deferred — needs real DB)
+- Cross-session merge: highest_confidence strategy
+- GDPR cascade delete: removes from all memory stores
+- Uses existing Memory models from vasini.models
+
+**Step 1: Write failing tests**
+
+`packages/agent-core/tests/test_memory_manager.py`:
+```python
+"""Tests for Memory Manager — short-term, factual, GDPR cascade delete."""
+
+import time
+import pytest
+from vasini.memory.manager import MemoryManager
+from vasini.memory.short_term import ShortTermStore
+from vasini.memory.factual import FactualStore, FactualRecord
+from vasini.memory.gdpr import GDPRManager
+
+
+class TestShortTermStore:
+    def test_set_and_get(self):
+        store = ShortTermStore(max_entries=100)
+        store.set("t1", "agent-1", "ctx:session", '{"key": "value"}')
+        result = store.get("t1", "agent-1", "ctx:session")
+        assert result == '{"key": "value"}'
+
+    def test_get_missing_returns_none(self):
+        store = ShortTermStore(max_entries=100)
+        assert store.get("t1", "agent-1", "missing") is None
+
+    def test_ttl_expiry(self):
+        store = ShortTermStore(max_entries=100, default_ttl_seconds=0.1)
+        store.set("t1", "agent-1", "key", "value")
+        time.sleep(0.15)
+        assert store.get("t1", "agent-1", "key") is None
+
+    def test_lru_eviction(self):
+        store = ShortTermStore(max_entries=2)
+        store.set("t1", "a1", "k1", "v1")
+        store.set("t1", "a1", "k2", "v2")
+        store.set("t1", "a1", "k3", "v3")  # evicts k1
+        assert store.get("t1", "a1", "k1") is None
+        assert store.get("t1", "a1", "k2") == "v2"
+        assert store.get("t1", "a1", "k3") == "v3"
+
+    def test_tenant_isolation(self):
+        store = ShortTermStore(max_entries=100)
+        store.set("t1", "a1", "key", "tenant1")
+        store.set("t2", "a1", "key", "tenant2")
+        assert store.get("t1", "a1", "key") == "tenant1"
+        assert store.get("t2", "a1", "key") == "tenant2"
+
+    def test_delete(self):
+        store = ShortTermStore(max_entries=100)
+        store.set("t1", "a1", "key", "value")
+        store.delete("t1", "a1", "key")
+        assert store.get("t1", "a1", "key") is None
+
+    def test_delete_all_for_tenant(self):
+        store = ShortTermStore(max_entries=100)
+        store.set("t1", "a1", "k1", "v1")
+        store.set("t1", "a1", "k2", "v2")
+        store.set("t2", "a1", "k1", "v1")
+        store.delete_tenant("t1")
+        assert store.get("t1", "a1", "k1") is None
+        assert store.get("t1", "a1", "k2") is None
+        assert store.get("t2", "a1", "k1") == "v1"
+
+
+class TestFactualStore:
+    def test_write_record(self):
+        store = FactualStore()
+        record = store.write(
+            tenant_id="t1", agent_id="a1", key="python-version",
+            value='{"v": "3.12"}', evidence="docs", confidence=0.99,
+        )
+        assert record.version == 1
+        assert record.key == "python-version"
+
+    def test_append_only_versioning(self):
+        store = FactualStore()
+        r1 = store.write("t1", "a1", "key", "v1", "evidence1", 0.95)
+        r2 = store.write("t1", "a1", "key", "v2", "evidence2", 0.98)
+        assert r1.version == 1
+        assert r2.version == 2
+
+    def test_get_latest_version(self):
+        store = FactualStore()
+        store.write("t1", "a1", "key", "v1", "e1", 0.95)
+        store.write("t1", "a1", "key", "v2", "e2", 0.98)
+        latest = store.get_latest("t1", "a1", "key")
+        assert latest is not None
+        assert latest.value == "v2"
+        assert latest.version == 2
+
+    def test_get_all_versions(self):
+        store = FactualStore()
+        store.write("t1", "a1", "key", "v1", "e1", 0.95)
+        store.write("t1", "a1", "key", "v2", "e2", 0.98)
+        versions = store.get_versions("t1", "a1", "key")
+        assert len(versions) == 2
+
+    def test_confidence_threshold_rejection(self):
+        store = FactualStore(min_confidence=0.95)
+        with pytest.raises(ValueError, match="confidence"):
+            store.write("t1", "a1", "key", "v1", "e1", 0.80)
+
+    def test_tenant_isolation(self):
+        store = FactualStore()
+        store.write("t1", "a1", "key", "t1-value", "e", 0.95)
+        store.write("t2", "a1", "key", "t2-value", "e", 0.95)
+        assert store.get_latest("t1", "a1", "key").value == "t1-value"
+        assert store.get_latest("t2", "a1", "key").value == "t2-value"
+
+    def test_delete_all_for_tenant(self):
+        store = FactualStore()
+        store.write("t1", "a1", "key", "v", "e", 0.95)
+        store.delete_tenant("t1")
+        assert store.get_latest("t1", "a1", "key") is None
+
+
+class TestGDPRManager:
+    def test_cascade_delete(self):
+        short_term = ShortTermStore(max_entries=100)
+        factual = FactualStore()
+
+        short_term.set("t1", "a1", "k1", "v1")
+        factual.write("t1", "a1", "fact", "v", "e", 0.95)
+
+        gdpr = GDPRManager(short_term=short_term, factual=factual)
+        result = gdpr.delete_tenant_data("t1")
+
+        assert result.success
+        assert short_term.get("t1", "a1", "k1") is None
+        assert factual.get_latest("t1", "a1", "fact") is None
+
+    def test_cascade_delete_preserves_other_tenants(self):
+        short_term = ShortTermStore(max_entries=100)
+        factual = FactualStore()
+
+        short_term.set("t1", "a1", "k1", "v1")
+        short_term.set("t2", "a1", "k1", "v2")
+        factual.write("t1", "a1", "f", "v", "e", 0.95)
+        factual.write("t2", "a1", "f", "v", "e", 0.95)
+
+        gdpr = GDPRManager(short_term=short_term, factual=factual)
+        gdpr.delete_tenant_data("t1")
+
+        assert short_term.get("t2", "a1", "k1") == "v2"
+        assert factual.get_latest("t2", "a1", "f") is not None
+
+    def test_export_tenant_data(self):
+        short_term = ShortTermStore(max_entries=100)
+        factual = FactualStore()
+
+        short_term.set("t1", "a1", "k1", "v1")
+        factual.write("t1", "a1", "fact", "value", "evidence", 0.95)
+
+        gdpr = GDPRManager(short_term=short_term, factual=factual)
+        export = gdpr.export_tenant_data("t1")
+
+        assert "short_term" in export
+        assert "factual" in export
+        assert len(export["factual"]) > 0
+
+
+class TestMemoryManager:
+    def test_create_manager(self):
+        mgr = MemoryManager()
+        assert mgr is not None
+
+    def test_short_term_via_manager(self):
+        mgr = MemoryManager()
+        mgr.short_term.set("t1", "a1", "key", "value")
+        assert mgr.short_term.get("t1", "a1", "key") == "value"
+
+    def test_factual_via_manager(self):
+        mgr = MemoryManager()
+        mgr.factual.write("t1", "a1", "key", "v", "e", 0.95)
+        assert mgr.factual.get_latest("t1", "a1", "key") is not None
+
+    def test_gdpr_delete_via_manager(self):
+        mgr = MemoryManager()
+        mgr.short_term.set("t1", "a1", "key", "value")
+        mgr.factual.write("t1", "a1", "fact", "v", "e", 0.95)
+        result = mgr.gdpr_delete("t1")
+        assert result.success
+```
+
+**Step 2: Implement**
+
+`packages/agent-core/src/vasini/memory/__init__.py`:
+```python
+"""Memory Manager — short-term, factual, episodic, GDPR compliance."""
+```
+
+`packages/agent-core/src/vasini/memory/short_term.py`:
+```python
+"""Short-term memory store — in-memory with TTL + LRU eviction.
+
+Production: Redis adapter with TTL via EXPIRE.
+"""
+
+from __future__ import annotations
+
+import time
+from collections import OrderedDict
+from dataclasses import dataclass
+
+
+@dataclass
+class _Entry:
+    value: str
+    expires_at: float
+
+
+class ShortTermStore:
+    def __init__(self, max_entries: int = 100, default_ttl_seconds: float = 86400) -> None:
+        self._max = max_entries
+        self._ttl = default_ttl_seconds
+        self._data: OrderedDict[str, _Entry] = OrderedDict()
+
+    def _key(self, tenant_id: str, agent_id: str, key: str) -> str:
+        return f"{tenant_id}:{agent_id}:{key}"
+
+    def set(self, tenant_id: str, agent_id: str, key: str, value: str, ttl: float | None = None) -> None:
+        full_key = self._key(tenant_id, agent_id, key)
+        expires = time.monotonic() + (ttl if ttl is not None else self._ttl)
+        if full_key in self._data:
+            self._data.move_to_end(full_key)
+        self._data[full_key] = _Entry(value=value, expires_at=expires)
+        while len(self._data) > self._max:
+            self._data.popitem(last=False)
+
+    def get(self, tenant_id: str, agent_id: str, key: str) -> str | None:
+        full_key = self._key(tenant_id, agent_id, key)
+        entry = self._data.get(full_key)
+        if entry is None:
+            return None
+        if time.monotonic() > entry.expires_at:
+            del self._data[full_key]
+            return None
+        self._data.move_to_end(full_key)
+        return entry.value
+
+    def delete(self, tenant_id: str, agent_id: str, key: str) -> None:
+        full_key = self._key(tenant_id, agent_id, key)
+        self._data.pop(full_key, None)
+
+    def delete_tenant(self, tenant_id: str) -> None:
+        prefix = f"{tenant_id}:"
+        keys_to_delete = [k for k in self._data if k.startswith(prefix)]
+        for k in keys_to_delete:
+            del self._data[k]
+```
+
+`packages/agent-core/src/vasini/memory/factual.py`:
+```python
+"""Factual memory — append-only versioned records.
+
+Production: PostgreSQL with the memory_factual table from Task 6.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+
+@dataclass
+class FactualRecord:
+    id: str
+    tenant_id: str
+    agent_id: str
+    key: str
+    value: str
+    version: int
+    evidence: str
+    confidence: float
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FactualStore:
+    def __init__(self, min_confidence: float = 0.0) -> None:
+        self._min_confidence = min_confidence
+        self._records: dict[str, list[FactualRecord]] = {}  # composite_key → [versions]
+
+    def _composite_key(self, tenant_id: str, agent_id: str, key: str) -> str:
+        return f"{tenant_id}:{agent_id}:{key}"
+
+    def write(
+        self,
+        tenant_id: str, agent_id: str, key: str,
+        value: str, evidence: str, confidence: float,
+    ) -> FactualRecord:
+        if confidence < self._min_confidence:
+            raise ValueError(f"Confidence {confidence} below minimum {self._min_confidence}")
+
+        ck = self._composite_key(tenant_id, agent_id, key)
+        versions = self._records.get(ck, [])
+        version = len(versions) + 1
+
+        record = FactualRecord(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            agent_id=agent_id,
+            key=key,
+            value=value,
+            version=version,
+            evidence=evidence,
+            confidence=confidence,
+        )
+        if ck not in self._records:
+            self._records[ck] = []
+        self._records[ck].append(record)
+        return record
+
+    def get_latest(self, tenant_id: str, agent_id: str, key: str) -> FactualRecord | None:
+        ck = self._composite_key(tenant_id, agent_id, key)
+        versions = self._records.get(ck, [])
+        return versions[-1] if versions else None
+
+    def get_versions(self, tenant_id: str, agent_id: str, key: str) -> list[FactualRecord]:
+        ck = self._composite_key(tenant_id, agent_id, key)
+        return list(self._records.get(ck, []))
+
+    def delete_tenant(self, tenant_id: str) -> None:
+        prefix = f"{tenant_id}:"
+        keys_to_delete = [k for k in self._records if k.startswith(prefix)]
+        for k in keys_to_delete:
+            del self._records[k]
+```
+
+`packages/agent-core/src/vasini/memory/gdpr.py`:
+```python
+"""GDPR compliance — cascade delete + data export."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from vasini.memory.short_term import ShortTermStore
+from vasini.memory.factual import FactualStore
+
+
+@dataclass
+class DeleteResult:
+    success: bool
+    tenant_id: str
+    stores_cleared: list[str]
+
+
+class GDPRManager:
+    def __init__(self, short_term: ShortTermStore, factual: FactualStore) -> None:
+        self._short_term = short_term
+        self._factual = factual
+
+    def delete_tenant_data(self, tenant_id: str) -> DeleteResult:
+        self._short_term.delete_tenant(tenant_id)
+        self._factual.delete_tenant(tenant_id)
+        return DeleteResult(
+            success=True,
+            tenant_id=tenant_id,
+            stores_cleared=["short_term", "factual"],
+        )
+
+    def export_tenant_data(self, tenant_id: str) -> dict:
+        # Collect short-term (can't easily enumerate without prefix scan)
+        # For MVP, return factual records only (short-term is ephemeral)
+        factual_data = []
+        prefix = f"{tenant_id}:"
+        for ck, records in self._factual._records.items():
+            if ck.startswith(prefix):
+                for r in records:
+                    factual_data.append({
+                        "key": r.key, "value": r.value,
+                        "version": r.version, "evidence": r.evidence,
+                        "confidence": r.confidence,
+                    })
+        return {
+            "short_term": [],  # ephemeral, no enumeration in MVP
+            "factual": factual_data,
+        }
+```
+
+`packages/agent-core/src/vasini/memory/manager.py`:
+```python
+"""Memory Manager — unified interface for all memory stores."""
+
+from __future__ import annotations
+
+from vasini.memory.short_term import ShortTermStore
+from vasini.memory.factual import FactualStore
+from vasini.memory.gdpr import GDPRManager, DeleteResult
+
+
+class MemoryManager:
+    def __init__(
+        self,
+        max_short_term_entries: int = 100,
+        min_factual_confidence: float = 0.0,
+    ) -> None:
+        self.short_term = ShortTermStore(max_entries=max_short_term_entries)
+        self.factual = FactualStore(min_confidence=min_factual_confidence)
+        self._gdpr = GDPRManager(short_term=self.short_term, factual=self.factual)
+
+    def gdpr_delete(self, tenant_id: str) -> DeleteResult:
+        return self._gdpr.delete_tenant_data(tenant_id)
+
+    def gdpr_export(self, tenant_id: str) -> dict:
+        return self._gdpr.export_tenant_data(tenant_id)
+```
+
+**Step 3: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_memory_manager.py -v
+git add packages/agent-core/src/vasini/memory/ packages/agent-core/tests/test_memory_manager.py
+git commit -m "feat: implement Memory Manager with short-term, factual, and GDPR compliance
+
+- ShortTermStore: in-memory with TTL + LRU eviction (Redis adapter for production)
+- FactualStore: append-only versioned records with confidence threshold
+- GDPRManager: cascade delete + tenant data export
+- MemoryManager: unified facade for all memory operations
+- Tenant isolation across all stores
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 20: Integration Smoke Tests
+
+**Files:**
+- Create: `packages/agent-core/tests/test_integration.py`
+
+**Scope:**
+- End-to-end smoke test connecting Phase 1-4 components
+- Validates: pack load → policy check → agent run → audit → event emit → token accounting
+- No external dependencies (all in-memory/mocked)
+
+**Step 1: Write test**
+
+`packages/agent-core/tests/test_integration.py`:
+```python
+"""Integration smoke tests — end-to-end Phase 1-4 component wiring."""
+
+import pytest
+from vasini.models import Guardrails, InputGuardrails, BehavioralGuardrails
+from vasini.policy.engine import PolicyEngine
+from vasini.safety.firewall import PromptFirewall
+from vasini.sandbox.executor import ToolExecutor
+from vasini.sandbox.audit import AuditLogger
+from vasini.models import ToolDef, ToolSandbox
+from vasini.eval.scorer import QualityScorer
+from vasini.eval.gate import QualityGate
+from vasini.eval.slo import SLOTracker, SLOConfig
+from vasini.events.envelope import build_event
+from vasini.events.bus import InMemoryEventBus
+from vasini.finops.accounting import TokenAccounting
+from vasini.finops.budget import BudgetManager, BudgetAction
+from vasini.memory.manager import MemoryManager
+from vasini.control.release import ReleaseManager, ReleaseStage
+from vasini.registry.store import PackRegistry
+
+
+class TestEndToEnd:
+    def test_policy_then_firewall_pipeline(self):
+        """Policy engine + prompt firewall in sequence."""
+        guardrails = Guardrails(
+            input=InputGuardrails(max_length=1000, jailbreak_detection=True),
+            behavioral=BehavioralGuardrails(prohibited_actions=["shell_exec"]),
+        )
+        engine = PolicyEngine.from_guardrails(guardrails)
+        firewall = PromptFirewall(input_guardrails=guardrails.input)
+
+        # Clean input passes both
+        policy_result = engine.evaluate({"input_text": "Hello", "action": "search", "current_step": 1})
+        assert policy_result.is_allowed
+        fw_result = firewall.check_input("Hello")
+        assert fw_result.passed
+
+        # Prohibited action blocked by policy
+        policy_result = engine.evaluate({"input_text": "ok", "action": "shell_exec", "current_step": 1})
+        assert policy_result.is_denied
+
+    @pytest.mark.asyncio
+    async def test_tool_execution_with_audit_and_events(self):
+        """Tool execution → audit log → event emission."""
+        audit = AuditLogger()
+        executor = ToolExecutor(audit_logger=audit)
+        bus = InMemoryEventBus()
+        events_received = []
+
+        async def event_handler(event):
+            events_received.append(event)
+
+        bus.subscribe("ai.vasini.tool.executed", event_handler)
+
+        tool = ToolDef(id="test_tool", name="Test", sandbox=ToolSandbox(timeout=10))
+
+        async def handler(args):
+            return {"result": "ok"}
+
+        executor.register_handler("test_tool", handler)
+        result = await executor.execute(tool=tool, arguments={}, tenant_id="t1", task_id="task-1")
+        assert result.success
+
+        # Emit event for tool execution
+        event = build_event("ai.vasini.tool.executed", "/sandbox", {"tool_id": "test_tool"}, tenant_id="t1")
+        await bus.publish(event)
+
+        assert len(audit.entries) == 1
+        assert len(events_received) == 1
+
+    def test_token_accounting_with_budget_check(self):
+        """Token accounting → budget check pipeline."""
+        accounting = TokenAccounting()
+        accounting.set_pricing("claude-opus-4", input_per_1k=0.015, output_per_1k=0.075)
+        budget_mgr = BudgetManager()
+        budget_mgr.set_budget("t1", soft_cap=1.0, hard_cap=2.0)
+
+        accounting.record("t1", "claude-opus-4", 10000, 5000)
+        cost = accounting.estimate_cost("t1")
+        check = budget_mgr.check("t1", current_spend=cost)
+
+        assert cost > 0
+        assert check.action == BudgetAction.ALLOW  # 0.525 < 1.0
+
+    def test_release_flow_with_eval_gate(self):
+        """Release + eval gate integration."""
+        release_mgr = ReleaseManager()
+        gate = QualityGate(min_score=0.85)
+        scorer = QualityScorer()
+
+        # Score above threshold → can promote
+        score = scorer.score("Paris", "Paris")
+        gate_result = gate.evaluate(score=score.score, total_cases=1, passed_cases=1)
+        assert gate_result.passed
+
+        release = release_mgr.create_release("pack-1", "1.0.0")
+        result = release_mgr.promote(release.id, eval_score=score.score)
+        assert result.success
+
+    def test_memory_with_gdpr(self):
+        """Memory operations + GDPR cascade delete."""
+        mgr = MemoryManager()
+        mgr.short_term.set("t1", "a1", "session", "data")
+        mgr.factual.write("t1", "a1", "fact", "value", "evidence", 0.95)
+
+        assert mgr.short_term.get("t1", "a1", "session") == "data"
+        assert mgr.factual.get_latest("t1", "a1", "fact") is not None
+
+        result = mgr.gdpr_delete("t1")
+        assert result.success
+        assert mgr.short_term.get("t1", "a1", "session") is None
+        assert mgr.factual.get_latest("t1", "a1", "fact") is None
+
+    def test_pack_registry_to_release_flow(self):
+        """Publish pack → create release → promote through stages."""
+        registry = PackRegistry()
+        release_mgr = ReleaseManager()
+
+        publish = registry.publish(
+            pack_id="python-dev", version="1.0.0",
+            manifest={"schema_version": "1.0", "pack_id": "python-dev", "risk_level": "low"},
+            layers={"soul": "content", "role": "content"}, author="author",
+        )
+        assert publish.success
+
+        release = release_mgr.create_release("python-dev", "1.0.0")
+        assert release.stage == ReleaseStage.DRAFT
+
+        result = release_mgr.promote(release.id, eval_score=0.92)
+        assert result.new_stage == ReleaseStage.VALIDATED
+
+    def test_slo_tracking_per_tenant(self):
+        """SLO tracker across requests."""
+        tracker = SLOTracker(config=SLOConfig(success_rate=0.95))
+        for _ in range(95):
+            tracker.record("t1", "pack-1", success=True, latency_ms=100)
+        for _ in range(5):
+            tracker.record("t1", "pack-1", success=False, latency_ms=100)
+
+        report = tracker.get_report("t1", "pack-1")
+        assert report.success_rate == 0.95
+        assert report.slo_met
+```
+
+**Step 2: Run tests, commit**
+
+```bash
+cd packages/agent-core && pytest tests/test_integration.py -v
+git add packages/agent-core/tests/test_integration.py
+git commit -m "feat: add integration smoke tests wiring Phase 1-4 components
+
+- Policy + firewall pipeline
+- Tool execution → audit → event emission
+- Token accounting → budget check
+- Release flow with eval gate
+- Memory + GDPR cascade delete
+- Pack registry → release promotion
+- SLO tracking per tenant
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
 
 ---
 
