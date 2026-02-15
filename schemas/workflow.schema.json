@@ -12,7 +12,7 @@
     },
     "default_process": {
       "type": "string",
-      "enum": ["linear", "iterative", "event_driven", "kanban", "scrum"]
+      "enum": ["sequential", "parallel", "adaptive"]
     },
     "sop": {
       "type": "array",
@@ -28,14 +28,17 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["action"],
+              "required": ["id", "action"],
               "properties": {
+                "id": { "type": "string", "minLength": 1 },
                 "action": { "type": "string", "minLength": 1 },
-                "tool": { "type": "string" },
-                "condition": { "type": "string" },
-                "on_failure": { "type": "string" }
+                "tool": { "type": ["string", "null"] },
+                "on_success": { "type": "string" },
+                "on_failure": { "type": "string" },
+                "timeout": { "type": "integer", "minimum": 1 },
+                "requires_approval": { "type": "boolean" }
               },
-              "additionalProperties": true
+              "additionalProperties": false
             },
             "minItems": 1
           }

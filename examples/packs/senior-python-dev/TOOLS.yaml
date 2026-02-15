@@ -7,8 +7,10 @@ available:
       timeout: 30
       memory: "512Mi"
       cpu: 1.0
-      network: "restricted"
-      filesystem: "isolated"
+      network: "egress_allowlist"
+      filesystem: "scoped"
+      egress_allowlist: ["pypi.org", "github.com"]
+      scoped_paths: ["/workspace", "/tmp"]
     risk_level: "medium"
     requires_approval: false
     audit: true
@@ -17,8 +19,9 @@ available:
     description: "Clone, commit, push, PR"
     sandbox:
       timeout: 60
-      network: "restricted"
+      network: "egress_allowlist"
       filesystem: "read_write"
+      egress_allowlist: ["github.com"]
     risk_level: "medium"
     requires_approval: false
     audit: true
@@ -28,7 +31,8 @@ available:
     sandbox:
       timeout: 10
       network: "none"
-      filesystem: "read_write"
+      filesystem: "scoped"
+      scoped_paths: ["/workspace"]
     risk_level: "low"
     requires_approval: false
     audit: false

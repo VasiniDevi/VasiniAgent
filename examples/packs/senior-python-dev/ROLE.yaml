@@ -19,10 +19,11 @@ competency_graph:
       evidence: ["FastAPI", "SQLAlchemy", "asyncio", "Pydantic"]
       tasks: ["API design", "DB modeling", "async services"]
       metrics:
-        test_coverage_target: 85
+        - name: "test_coverage"
+          target: 85
     - id: "system-design"
       name: "System Design"
-      level: "advanced"
+      level: "proficient"
       evidence: ["microservices", "event-driven", "CQRS"]
       tasks: ["architecture decisions", "tech specs"]
 domain_knowledge:

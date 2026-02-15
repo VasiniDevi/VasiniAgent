@@ -1,24 +1,39 @@
 schema_version: "1.0"
-default_process: "iterative"
+default_process: "adaptive"
 sop:
   - id: "feature-implementation"
     name: "Feature Implementation"
     trigger: "User requests new feature or code change"
     steps:
-      - action: "Analyze requirements and existing code"
+      - id: "analyze"
+        action: "Analyze requirements and existing code"
         tool: "file_manager"
+        on_success: "plan"
         on_failure: "clarify"
-      - action: "Create implementation plan"
+        timeout: 30
+      - id: "plan"
+        action: "Create implementation plan"
+        tool: null
+        on_success: "implement"
         on_failure: "understand"
-      - action: "Write minimal implementation"
+        timeout: 60
+      - id: "implement"
+        action: "Write minimal implementation"
         tool: "code_executor"
+        on_success: "verify"
         on_failure: "implement"
-      - action: "Run tests, lint, type check"
+        timeout: 120
+      - id: "verify"
+        action: "Run tests, lint, type check"
         tool: "code_executor"
+        on_success: "commit"
         on_failure: "implement"
-      - action: "Commit changes"
+        timeout: 60
+      - id: "commit"
+        action: "Commit changes"
         tool: "git"
         on_failure: "verify"
+        timeout: 30
 handoffs:
   - from: "senior-python-dev"
     to: "qa-engineer"

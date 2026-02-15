@@ -26,19 +26,19 @@
       "properties": {
         "communication_style": {
           "type": "string",
-          "enum": ["formal", "casual", "technical", "friendly", "concise", "detailed"]
+          "enum": ["formal", "professional", "casual", "academic"]
         },
         "verbosity": {
           "type": "string",
-          "enum": ["minimal", "low", "medium", "high", "verbose"]
+          "enum": ["concise", "balanced", "detailed"]
         },
         "proactivity": {
           "type": "string",
-          "enum": ["reactive", "balanced", "proactive", "highly_proactive"]
+          "enum": ["reactive", "balanced", "proactive"]
         },
         "confidence_expression": {
           "type": "string",
-          "enum": ["humble", "balanced", "confident", "assertive"]
+          "enum": ["cautious", "balanced", "assertive"]
         }
       },
       "additionalProperties": false
@@ -47,9 +47,9 @@
       "type": "object",
       "properties": {
         "default": { "type": "string" },
-        "error": { "type": "string" },
-        "success": { "type": "string" },
-        "uncertainty": { "type": "string" }
+        "on_success": { "type": "string" },
+        "on_error": { "type": "string" },
+        "on_uncertainty": { "type": "string" }
       },
       "additionalProperties": true
     },
@@ -62,9 +62,9 @@
     "adaptations": {
       "type": "object",
       "properties": {
-        "novice_user": { "type": "object" },
-        "expert_user": { "type": "object" },
-        "stressed_user": { "type": "object" }
+        "beginner_user": { "type": "string" },
+        "expert_user": { "type": "string" },
+        "crisis_mode": { "type": "string" }
       },
       "additionalProperties": true
     }

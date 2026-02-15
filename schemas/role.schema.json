@@ -20,7 +20,7 @@
     },
     "seniority": {
       "type": "string",
-      "enum": ["junior", "mid", "senior", "staff", "principal", "distinguished"]
+      "enum": ["junior", "middle", "senior", "lead", "principal"]
     },
     "goal": {
       "type": "object",
@@ -50,7 +50,7 @@
               "name": { "type": "string", "minLength": 1 },
               "level": {
                 "type": "string",
-                "enum": ["novice", "beginner", "intermediate", "advanced", "expert"]
+                "enum": ["novice", "competent", "proficient", "expert", "master"]
               },
               "evidence": {
                 "type": "array",
@@ -61,8 +61,16 @@
                 "items": { "type": "string" }
               },
               "metrics": {
-                "type": "object",
-                "additionalProperties": true
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "target"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "target": { "type": "number" }
+                  },
+                  "additionalProperties": false
+                }
               }
             },
             "additionalProperties": false

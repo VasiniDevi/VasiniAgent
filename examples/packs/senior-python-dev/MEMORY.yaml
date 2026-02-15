@@ -1,7 +1,7 @@
 schema_version: "1.0"
 short_term:
   enabled: true
-  ttl: 86400
+  ttl: "24h"
   max_entries: 100
 episodic:
   enabled: true
@@ -11,8 +11,6 @@ episodic:
   source_required: true
 factual:
   enabled: true
-  confidence_threshold: 0.95
-  requires_evidence: true
 cross_session:
   enabled: true
-  sync_strategy: "full"
+  merge_strategy: "highest_confidence"

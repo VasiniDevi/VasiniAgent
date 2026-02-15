@@ -27,11 +27,19 @@
               "cpu": { "type": "number", "minimum": 0.1 },
               "network": {
                 "type": "string",
-                "enum": ["none", "restricted", "full"]
+                "enum": ["none", "egress_allowlist", "full"]
               },
               "filesystem": {
                 "type": "string",
-                "enum": ["none", "read_only", "read_write", "isolated"]
+                "enum": ["none", "read_only", "read_write", "scoped"]
+              },
+              "egress_allowlist": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "scoped_paths": {
+                "type": "array",
+                "items": { "type": "string" }
               }
             },
             "additionalProperties": false

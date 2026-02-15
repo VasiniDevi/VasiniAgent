@@ -3,11 +3,15 @@ input:
   max_length: 50000
   sanitization: true
   jailbreak_detection: true
-  pii_detection: true
+  pii_detection:
+    enabled: true
+    action: "warn"
 output:
   max_length: 100000
   pii_check: true
-  hallucination_check: true
+  hallucination_check:
+    enabled: true
+    confidence_threshold: 0.80
   source_citation_required: false
 behavioral:
   prohibited_actions:
