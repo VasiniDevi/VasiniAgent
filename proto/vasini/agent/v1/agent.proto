@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package vasini.agent.v1;
+
+service AgentService {
+  rpc RunAgent(RunAgentRequest) returns (stream RunAgentResponse);
+  rpc GetAgentStatus(GetAgentStatusRequest) returns (AgentStatus);
+  rpc CancelAgent(CancelAgentRequest) returns (CancelAgentResponse);
+}
+
+message RunAgentRequest {
+  string pack_id = 1;
+  string tenant_id = 2;
+  string input = 3;
+  string session_id = 4;
+  string idempotency_key = 5;
+  map<string, string> metadata = 6;
+}
+
+message RunAgentResponse {
+  oneof payload {
+    string text_chunk = 1;
+    ToolCall tool_call = 2;
+    ToolResult tool_result = 3;
+    AgentStatus status = 4;
+  }
+}
+
+message ToolCall {
+  string tool_id = 1;
+  string tool_name = 2;
+  string arguments_json = 3;
+}
+
+message ToolResult {
+  string tool_id = 1;
+  bool success = 2;
+  string result_json = 3;
+  string error = 4;
+}
+
+message AgentStatus {
+  string task_id = 1;
+  TaskState state = 2;
+  string pack_id = 3;
+  string pack_version = 4;
+}
+
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;
+  TASK_STATE_QUEUED = 1;
+  TASK_STATE_RUNNING = 2;
+  TASK_STATE_RETRY = 3;
+  TASK_STATE_DONE = 4;
+  TASK_STATE_FAILED = 5;
+  TASK_STATE_CANCELLED = 6;
+  TASK_STATE_DEAD_LETTER = 7;
+}
+
+message GetAgentStatusRequest {
+  string task_id = 1;
+  string tenant_id = 2;
+}
+
+message CancelAgentRequest {
+  string task_id = 1;
+  string tenant_id = 2;
+}
+
+message CancelAgentResponse {
+  bool success = 1;
+}
