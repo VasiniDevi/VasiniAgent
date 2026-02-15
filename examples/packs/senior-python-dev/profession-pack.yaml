@@ -1,0 +1,20 @@
+schema_version: "1.0"
+pack_id: "senior-python-dev"
+version: "1.0.0"
+risk_level: "medium"
+author:
+  name: "Vasini Team"
+soul:
+  file: "./SOUL.yaml"
+role:
+  file: "./ROLE.yaml"
+tools:
+  file: "./TOOLS.yaml"
+skills:
+  - file: "./SKILLS/code-review.md"
+guardrails:
+  file: "./GUARDRAILS.yaml"
+memory:
+  file: "./MEMORY.yaml"
+workflow:
+  file: "./WORKFLOW.yaml"

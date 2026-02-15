@@ -1,0 +1,42 @@
+schema_version: "1.0"
+available:
+  - id: "code_executor"
+    name: "Code Executor"
+    description: "Run Python/Bash in sandbox"
+    sandbox:
+      timeout: 30
+      memory: "512Mi"
+      cpu: 1.0
+      network: "restricted"
+      filesystem: "isolated"
+    risk_level: "medium"
+    requires_approval: false
+    audit: true
+  - id: "git"
+    name: "Git Operations"
+    description: "Clone, commit, push, PR"
+    sandbox:
+      timeout: 60
+      network: "restricted"
+      filesystem: "read_write"
+    risk_level: "medium"
+    requires_approval: false
+    audit: true
+  - id: "file_manager"
+    name: "File Manager"
+    description: "Read, write, search files"
+    sandbox:
+      timeout: 10
+      network: "none"
+      filesystem: "read_write"
+    risk_level: "low"
+    requires_approval: false
+    audit: false
+denied: ["shell_unrestricted", "network_scanner"]
+tool_policies:
+  code_executor:
+    rate_limit: 50
+    max_retries: 3
+  git:
+    rate_limit: 20
+    max_retries: 2

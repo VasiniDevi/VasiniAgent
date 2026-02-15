@@ -1,0 +1,28 @@
+schema_version: "1.0"
+default_process: "iterative"
+sop:
+  - id: "feature-implementation"
+    name: "Feature Implementation"
+    trigger: "User requests new feature or code change"
+    steps:
+      - action: "Analyze requirements and existing code"
+        tool: "file_manager"
+        on_failure: "clarify"
+      - action: "Create implementation plan"
+        on_failure: "understand"
+      - action: "Write minimal implementation"
+        tool: "code_executor"
+        on_failure: "implement"
+      - action: "Run tests, lint, type check"
+        tool: "code_executor"
+        on_failure: "implement"
+      - action: "Commit changes"
+        tool: "git"
+        on_failure: "verify"
+handoffs:
+  - from: "senior-python-dev"
+    to: "qa-engineer"
+    condition: "Complex testing scenario required"
+    context_transfer: ["requirements", "implementation_notes", "test_plan"]
+reporting:
+  format: "structured"

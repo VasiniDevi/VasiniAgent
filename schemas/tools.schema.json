@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/tools.schema.json",
+  "title": "Tools Layer",
+  "description": "Schema for the Tools layer defining available tools and policies",
+  "type": "object",
+  "required": ["schema_version", "available"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "available": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "sandbox": {
+            "type": "object",
+            "properties": {
+              "timeout": { "type": "integer", "minimum": 1 },
+              "memory": { "type": "string" },
+              "cpu": { "type": "number", "minimum": 0.1 },
+              "network": {
+                "type": "string",
+                "enum": ["none", "restricted", "full"]
+              },
+              "filesystem": {
+                "type": "string",
+                "enum": ["none", "read_only", "read_write", "isolated"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "requires_approval": { "type": "boolean" },
+          "audit": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "denied": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tool_policies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "rate_limit": { "type": "integer", "minimum": 1 },
+          "cooldown": { "type": "integer", "minimum": 0 },
+          "max_retries": { "type": "integer", "minimum": 0 },
+          "fallback": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

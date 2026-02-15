@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/workflow.schema.json",
+  "title": "Workflow Layer",
+  "description": "Schema for the Workflow layer defining processes, SOPs, and handoffs",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "default_process": {
+      "type": "string",
+      "enum": ["linear", "iterative", "event_driven", "kanban", "scrum"]
+    },
+    "sop": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "trigger", "steps"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "trigger": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["action"],
+              "properties": {
+                "action": { "type": "string", "minLength": 1 },
+                "tool": { "type": "string" },
+                "condition": { "type": "string" },
+                "on_failure": { "type": "string" }
+              },
+              "additionalProperties": true
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "handoffs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "condition": { "type": "string" },
+          "context_transfer": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "reporting": {
+      "type": "object",
+      "properties": {
+        "frequency": { "type": "string" },
+        "format": { "type": "string" },
+        "recipients": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "include_metrics": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

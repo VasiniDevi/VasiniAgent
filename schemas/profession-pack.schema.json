@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/profession-pack.schema.json",
+  "title": "Profession Pack Manifest",
+  "description": "Schema for a Vasini profession pack manifest file (profession-pack.yaml)",
+  "type": "object",
+  "required": ["schema_version", "pack_id", "version", "risk_level", "author", "role"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Schema version in major.minor format"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "description": "Unique pack identifier in lowercase kebab-case"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$",
+      "description": "Pack version in semver format"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "Overall risk level of the pack"
+    },
+    "author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "format": "email" },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "role": { "$ref": "#/$defs/layer_ref" },
+    "soul": { "$ref": "#/$defs/layer_ref" },
+    "tools": { "$ref": "#/$defs/layer_ref" },
+    "guardrails": { "$ref": "#/$defs/layer_ref" },
+    "memory": { "$ref": "#/$defs/layer_ref" },
+    "workflow": { "$ref": "#/$defs/layer_ref" },
+    "skills": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/layer_ref" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "layer_ref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["extends"],
+          "properties": {
+            "extends": { "type": "string", "minLength": 1 },
+            "overrides": { "type": "object" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["inline"],
+          "properties": {
+            "inline": { "type": "object" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/skill-frontmatter.schema.json",
+  "title": "Skill Frontmatter",
+  "description": "Schema for YAML frontmatter in skill markdown files",
+  "type": "object",
+  "required": ["id", "name", "trigger"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique skill identifier"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable skill name"
+    },
+    "trigger": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Condition or command that activates this skill"
+    },
+    "description": {
+      "type": "string"
+    },
+    "required_tools": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "estimated_duration": {
+      "type": "string",
+      "description": "Estimated time to complete, e.g. '5m', '1h'"
+    }
+  },
+  "additionalProperties": false
+}

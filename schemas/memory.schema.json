@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/memory.schema.json",
+  "title": "Memory Layer",
+  "description": "Schema for the Memory layer defining memory systems and retention policies",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "short_term": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "ttl": { "type": "integer", "minimum": 1, "description": "Time-to-live in seconds" },
+        "max_entries": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "episodic": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "confidence_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "retrieval_top_k": { "type": "integer", "minimum": 1 },
+        "similarity_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source_required": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "factual": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "refresh_interval": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "cross_session": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sync_strategy": {
+          "type": "string",
+          "enum": ["full", "incremental", "selective"]
+        },
+        "max_sessions": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

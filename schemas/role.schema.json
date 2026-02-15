@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/role.schema.json",
+  "title": "Role Layer",
+  "description": "Schema for the Role layer defining agent professional identity and competencies",
+  "type": "object",
+  "required": ["schema_version", "title", "domain", "seniority", "goal"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seniority": {
+      "type": "string",
+      "enum": ["junior", "mid", "senior", "staff", "principal", "distinguished"]
+    },
+    "goal": {
+      "type": "object",
+      "required": ["primary"],
+      "properties": {
+        "primary": { "type": "string", "minLength": 1 },
+        "secondary": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "backstory": {
+      "type": "string"
+    },
+    "competency_graph": {
+      "type": "object",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "level"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "level": {
+                "type": "string",
+                "enum": ["novice", "beginner", "intermediate", "advanced", "expert"]
+              },
+              "evidence": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "tasks": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "metrics": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "domain_knowledge": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,24 @@
+schema_version: "1.0"
+input:
+  max_length: 50000
+  sanitization: true
+  jailbreak_detection: true
+  pii_detection: true
+output:
+  max_length: 100000
+  pii_check: true
+  hallucination_check: true
+  source_citation_required: false
+behavioral:
+  prohibited_actions:
+    - "Delete production data"
+    - "Push directly to main branch"
+    - "Expose secrets in logs"
+  required_disclaimers: []
+  escalation_triggers:
+    - "Request involves production database changes"
+    - "Request involves security-sensitive operations"
+  max_autonomous_steps: 15
+compliance:
+  audit_logging: true
+  data_retention: "90d"

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/guardrails.schema.json",
+  "title": "Guardrails Layer",
+  "description": "Schema for the Guardrails layer defining safety and compliance constraints",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "max_length": { "type": "integer", "minimum": 1 },
+        "sanitization": { "type": "boolean" },
+        "jailbreak_detection": { "type": "boolean" },
+        "pii_detection": { "type": "boolean" },
+        "content_filter": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "categories": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "max_length": { "type": "integer", "minimum": 1 },
+        "pii_check": { "type": "boolean" },
+        "hallucination_check": { "type": "boolean" },
+        "format_validation": { "type": "boolean" },
+        "source_citation_required": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "behavioral": {
+      "type": "object",
+      "properties": {
+        "prohibited_actions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_disclaimers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "escalation_triggers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "max_autonomous_steps": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "compliance": {
+      "type": "object",
+      "properties": {
+        "frameworks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "data_retention": { "type": "string" },
+        "audit_logging": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

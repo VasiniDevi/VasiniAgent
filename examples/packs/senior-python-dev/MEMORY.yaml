@@ -1,0 +1,18 @@
+schema_version: "1.0"
+short_term:
+  enabled: true
+  ttl: 86400
+  max_entries: 100
+episodic:
+  enabled: true
+  confidence_threshold: 0.75
+  retrieval_top_k: 10
+  similarity_threshold: 0.7
+  source_required: true
+factual:
+  enabled: true
+  confidence_threshold: 0.95
+  requires_evidence: true
+cross_session:
+  enabled: true
+  sync_strategy: "full"

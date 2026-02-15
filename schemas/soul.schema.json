@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vasini.dev/schemas/soul.schema.json",
+  "title": "Soul Layer",
+  "description": "Schema for the Soul layer defining agent identity and personality",
+  "type": "object",
+  "required": ["schema_version", "identity", "personality"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "identity": {
+      "type": "object",
+      "required": ["name", "language"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 2 },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "personality": {
+      "type": "object",
+      "required": ["communication_style", "verbosity", "proactivity", "confidence_expression"],
+      "properties": {
+        "communication_style": {
+          "type": "string",
+          "enum": ["formal", "casual", "technical", "friendly", "concise", "detailed"]
+        },
+        "verbosity": {
+          "type": "string",
+          "enum": ["minimal", "low", "medium", "high", "verbose"]
+        },
+        "proactivity": {
+          "type": "string",
+          "enum": ["reactive", "balanced", "proactive", "highly_proactive"]
+        },
+        "confidence_expression": {
+          "type": "string",
+          "enum": ["humble", "balanced", "confident", "assertive"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "tone": {
+      "type": "object",
+      "properties": {
+        "default": { "type": "string" },
+        "error": { "type": "string" },
+        "success": { "type": "string" },
+        "uncertainty": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "principles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 3,
+      "maxItems": 7
+    },
+    "adaptations": {
+      "type": "object",
+      "properties": {
+        "novice_user": { "type": "object" },
+        "expert_user": { "type": "object" },
+        "stressed_user": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
