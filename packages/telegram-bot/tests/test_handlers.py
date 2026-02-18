@@ -67,6 +67,8 @@ class TestWellnessBot:
 
         mock_response = MagicMock()
         mock_response.content = "How are you feeling?"
+        mock_response.model = "claude-sonnet-4-5-20250929"
+        mock_response.usage = {"input_tokens": 50, "output_tokens": 25}
         bot.provider.chat = AsyncMock(return_value=mock_response)
 
         reply = await bot.process_text(user_id=12345, text="Hello")

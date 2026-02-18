@@ -46,6 +46,8 @@ class TestE2EIntegration:
         # Mock Claude response
         mock_response = MagicMock()
         mock_response.content = "Окей. Расскажи что происходит."
+        mock_response.model = "claude-sonnet-4-5-20250929"
+        mock_response.usage = {"input_tokens": 50, "output_tokens": 25}
         bot.provider.chat = AsyncMock(return_value=mock_response)
 
         reply = await bot.process_text(user_id=12345, text="Мне плохо")
@@ -70,6 +72,8 @@ class TestE2EIntegration:
 
         mock_response = MagicMock()
         mock_response.content = "Response"
+        mock_response.model = "claude-sonnet-4-5-20250929"
+        mock_response.usage = {"input_tokens": 50, "output_tokens": 25}
         bot.provider.chat = AsyncMock(return_value=mock_response)
 
         await bot.process_text(12345, "Message 1")
@@ -94,6 +98,8 @@ class TestE2EIntegration:
 
         mock_response = MagicMock()
         mock_response.content = "I see your mood was low."
+        mock_response.model = "claude-sonnet-4-5-20250929"
+        mock_response.usage = {"input_tokens": 50, "output_tokens": 25}
         bot.provider.chat = AsyncMock(return_value=mock_response)
 
         await bot.process_text(12345, "How am I doing?")

@@ -35,7 +35,7 @@ class BotConfig(BaseSettings):
     # Allowed users (telegram user IDs, comma-separated)
     allowed_user_ids: str = ""
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     @property
     def allowed_ids(self) -> set[int]:
