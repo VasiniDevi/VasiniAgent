@@ -1,0 +1,119 @@
+plan_id: "wellness-cbt-agent"
+plan_doc: "docs/plans/2026-02-15-wellness-cbt-agent-plan.md"
+design_doc: "docs/plans/2026-02-15-wellness-cbt-agent-design.md"
+completed_at: "2026-02-19T01:55:00Z"
+tasks:
+  - task_id: "task-01"
+    title: "Create wellness-cbt profession-pack manifest"
+    commit_sha: "eefa2cc"
+    review_artifact: "docs/reviews/wellness-cbt-typefix-review.md"
+    tier: "low"
+    breaking_change: false
+  - task_id: "task-02"
+    title: "Create soul.yaml — agent personality"
+    commit_sha: "72fb88c"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-03"
+    title: "Create role.yaml — full competency set"
+    commit_sha: "eedc07e"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-04"
+    title: "Create tools, guardrails, memory, workflow YAML"
+    commit_sha: "2df1ad0"
+    tier: "critical"
+    breaking_change: false
+  - task_id: "task-05"
+    title: "Validate pack loads via Composer"
+    commit_sha: "b9e7b8e"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-06"
+    title: "Implement Anthropic Claude provider"
+    commit_sha: "68ff036"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-07"
+    title: "Create Telegram bot package + config"
+    commit_sha: "93f8d52"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-08"
+    title: "Implement voice pipeline (STT + TTS)"
+    commit_sha: "aa4d35b"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-09"
+    title: "Implement session store (SQLite)"
+    commit_sha: "43d5a89"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-10"
+    title: "Implement bot handlers (text + voice + onboarding)"
+    commit_sha: "b6ff76e"
+    tier: "critical"
+    breaking_change: false
+  - task_id: "task-11"
+    title: "Implement proactive scheduler"
+    commit_sha: "8db869f"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-12"
+    title: "Implement main app entry point"
+    commit_sha: "207b916"
+    tier: "low"
+    breaking_change: false
+  - task_id: "task-13"
+    title: "End-to-end integration tests"
+    commit_sha: "763c4d5"
+    tier: "normal"
+    breaking_change: false
+  - task_id: "task-14"
+    title: "Create launch script"
+    commit_sha: "fae8774"
+    tier: "low"
+    breaking_change: false
+  - task_id: "task-15"
+    title: "Final verification — all tests pass"
+    commit_sha: "eaf73b0"
+    tier: "normal"
+    breaking_change: false
+remediation:
+  - task_id: "remediation-01"
+    title: "Fix 40 mypy type errors in telegram-bot"
+    commit_sha: "eaf73b0"
+    review_artifact: "docs/reviews/wellness-cbt-typefix-review.md"
+tests_run: 339
+tests_passed: 339
+lint_clean: true
+typecheck_clean: true
+build_clean: true
+risks:
+  - id: "risk-01"
+    status: "accepted"
+    description: "Live API keys in .env on disk — file is .gitignored and not tracked by git. Recommend rotating keys and using a secrets manager for production."
+  - id: "risk-02"
+    status: "accepted"
+    description: "PromptFirewall (input validation, jailbreak detection) exists in agent-core but is not wired into telegram bot handlers. Recommend wiring in a follow-up task."
+  - id: "risk-03"
+    status: "accepted"
+    description: "allowed_user_ids config exists but is not enforced in handlers. Recommend adding auth middleware in a follow-up task."
+  - id: "risk-04"
+    status: "accepted"
+    description: "PII detection action is 'warn' not 'redact'. For mental health app, consider upgrading to 'redact' in production."
+  - id: "risk-05"
+    status: "mitigated"
+    description: "SQL injection — all queries use parameterized placeholders."
+  - id: "risk-06"
+    status: "mitigated"
+    description: "Crisis protocol — escalation triggers, crisis contacts, and dedicated SOP defined in pack YAML."
+breaking_changes: []
+migration_steps: []
+rollback_plan: "Per-component rollback via git revert on individual task commits (eefa2cc..eaf73b0)"
+recommended_next:
+  - "Wire PromptFirewall into telegram bot handlers (input/output validation)"
+  - "Enforce allowed_user_ids authorization in handler middleware"
+  - "Upgrade PII action from 'warn' to 'redact' for production"
+  - "Rotate API keys referenced in risk-01"
+  - "Add pytest-cov coverage reporting"
