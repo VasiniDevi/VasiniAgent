@@ -8,7 +8,7 @@ from pathlib import Path
 
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message as TgMessage
+from aiogram.types import BufferedInputFile, Message as TgMessage
 
 from vasini.composer import Composer
 from vasini.llm.anthropic_provider import AnthropicProvider
@@ -70,17 +70,27 @@ class WellnessBot:
         llm_router = LLMRouter(config=llm_config)
         self.agent_runtime = AgentRuntime(config=agent_config, llm_router=llm_router)
 
+    def _require_setup(self) -> tuple[SessionStore, AnthropicProvider, AgentRuntime, VoicePipeline]:
+        """Assert all subsystems are initialized and return them."""
+        assert self.store is not None, "Bot not initialized — call setup() first"
+        assert self.provider is not None, "Bot not initialized — call setup() first"
+        assert self.agent_runtime is not None, "Bot not initialized — call setup() first"
+        assert self.voice is not None, "Bot not initialized — call setup() first"
+        return self.store, self.provider, self.agent_runtime, self.voice
+
     async def process_text(self, user_id: int, text: str) -> str:
         """Process a text message and return response."""
+        store, provider, runtime, _ = self._require_setup()
+
         # Save user message
-        await self.store.save_message(user_id, "user", text)
+        await store.save_message(user_id, "user", text)
 
         # Load conversation history
-        history = await self.store.get_messages(user_id, limit=20)
-        moods = await self.store.get_moods(user_id, limit=5)
+        history = await store.get_messages(user_id, limit=20)
+        moods = await store.get_moods(user_id, limit=5)
 
         # Build context for LLM
-        system_prompt = self.agent_runtime._build_system_prompt()
+        system_prompt = runtime._build_system_prompt()
 
         # Add mood context if available
         if moods:
@@ -93,13 +103,13 @@ class WellnessBot:
         messages = [Message(role=m["role"], content=m["content"]) for m in history]
 
         # Call Claude
-        response = await self.provider.chat(messages=messages, system=system_prompt)
+        response = await provider.chat(messages=messages, system=system_prompt)
         reply = response.content
 
         # Track token usage
         usage = response.usage
         if usage:
-            await self.store.save_token_usage(
+            await store.save_token_usage(
                 user_id=user_id,
                 model=response.model,
                 input_tokens=usage.get("input_tokens", 0),
@@ -107,10 +117,10 @@ class WellnessBot:
             )
 
         # Save assistant response
-        await self.store.save_message(user_id, "assistant", reply)
+        await store.save_message(user_id, "assistant", reply)
 
         # Reset missed check-ins counter (user is active)
-        await self.store.reset_missed_checkins(user_id)
+        await store.reset_missed_checkins(user_id)
 
         return reply
 
@@ -141,8 +151,10 @@ def get_bot() -> WellnessBot:
 async def cmd_start(message: TgMessage) -> None:
     """Handle /start — onboarding."""
     bot = get_bot()
+    assert message.from_user is not None
     user_id = message.from_user.id
-    await bot.store.update_user_state(user_id, status="onboarding")
+    store, _, _, _ = bot._require_setup()
+    await store.update_user_state(user_id, status="onboarding")
 
     welcome = (
         "Привет! Я — wellness-ассистент, работаю на основе когнитивно-поведенческой "
@@ -153,23 +165,27 @@ async def cmd_start(message: TgMessage) -> None:
         "Как ты себя сейчас чувствуешь? Оцени от 1 до 10."
     )
     await message.answer(welcome)
-    await bot.store.save_message(user_id, "assistant", welcome)
+    await store.save_message(user_id, "assistant", welcome)
 
 
 @router.message(F.voice)
 async def handle_voice(message: TgMessage, bot: Bot) -> None:
     """Handle voice message: STT → process → TTS → voice reply."""
     wellness = get_bot()
+    assert message.from_user is not None
     user_id = message.from_user.id
+    _, _, _, voice = wellness._require_setup()
 
     # Download voice file
+    assert message.voice is not None
     file = await bot.get_file(message.voice.file_id)
+    assert file.file_path is not None
     voice_data = io.BytesIO()
     await bot.download_file(file.file_path, voice_data)
     audio_bytes = voice_data.getvalue()
 
     # STT
-    text = await wellness.voice.speech_to_text(audio_bytes)
+    text = await voice.speech_to_text(audio_bytes)
     if not text.strip():
         await message.answer("Не удалось распознать голосовое сообщение. Попробуй ещё раз?")
         return
@@ -178,16 +194,16 @@ async def handle_voice(message: TgMessage, bot: Bot) -> None:
     reply = await wellness.process_text(user_id, text)
 
     # TTS — respond with voice
-    audio_reply = await wellness.voice.text_to_speech(reply)
-    voice_file = io.BytesIO(audio_reply)
-    voice_file.name = "reply.mp3"
-    await message.answer_voice(voice=voice_file)
+    audio_reply = await voice.text_to_speech(reply)
+    await message.answer_voice(voice=BufferedInputFile(audio_reply, filename="reply.mp3"))
 
 
 @router.message(F.text)
 async def handle_text(message: TgMessage) -> None:
     """Handle text message."""
     wellness = get_bot()
+    assert message.from_user is not None
+    assert message.text is not None
     user_id = message.from_user.id
     reply = await wellness.process_text(user_id, message.text)
     await message.answer(reply)

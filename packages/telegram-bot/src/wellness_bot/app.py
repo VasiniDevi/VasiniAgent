@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    config = BotConfig()
+    config = BotConfig()  # type: ignore[call-arg]  # pydantic-settings loads from env
 
     # Telegram bot
     bot = Bot(token=config.telegram_bot_token)
@@ -29,6 +29,7 @@ async def main() -> None:
     set_bot_instance(wellness)
 
     # Proactive scheduler
+    assert wellness.store is not None
     scheduler = CheckInScheduler(
         bot=bot,
         store=wellness.store,
