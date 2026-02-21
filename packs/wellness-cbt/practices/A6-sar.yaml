@@ -1,0 +1,52 @@
+id: A6
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Ситуационное переключение внимания (SAR)"
+name_en: "Situational Attentional Refocusing"
+category: attention
+goal: "Переключить внимание с объекта фиксации на внешние детали окружения"
+duration_min: 2
+duration_max: 3
+priority_rank: 25
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [symptom_fixation, avoidance]
+
+steps:
+  - index: 1
+    instruction_ru: "Заметьте, на чём сейчас зафиксировано ваше внимание. Это может быть телесное ощущение, тревожная мысль или что-то в окружении. Просто отметьте это для себя."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Фиксация — это когда внимание «прилипло» к чему-то одному и не отпускает. Проверьте: есть ли что-то, на чём вы сейчас залипли?"
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто скажите, о чём вы сейчас думаете или что чувствуете в теле."
+
+  - index: 2
+    instruction_ru: "Теперь переключите внимание на окружение. Назовите 3 конкретных внешних детали, которые вы видите прямо сейчас. Опишите их подробно: цвет, форму, текстуру."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Посмотрите вокруг и выберите три предмета. Для каждого скажите, какого он цвета и формы. Например: «синяя кружка, круглая», «белая стена, гладкая»."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто назовите три предмета, которые видите. Без описания — просто три слова."
+
+outcome:
+  pre_rating: {type: rating, label: "Фиксация внимания до", scale: "0-10"}
+  post_rating: {type: rating, label: "Фиксация внимания после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A6
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

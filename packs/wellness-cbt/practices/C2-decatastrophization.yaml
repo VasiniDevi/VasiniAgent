@@ -1,0 +1,61 @@
+id: C2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Декатастрофизация"
+name_en: "Decatastrophization"
+category: cognitive
+goal: "Снизить катастрофизацию через анализ спектра возможных исходов"
+duration_min: 5
+duration_max: 7
+priority_rank: 31
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 5
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: 8
+
+maintaining_cycles: [worry]
+
+steps:
+  - index: 1
+    instruction_ru: "Представьте самый ХУДШИЙ вариант развития событий. Что самое страшное может произойти? Опишите этот сценарий. Позвольте себе его проговорить — это безопасно."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Подумайте: чего вы больше всего боитесь в этой ситуации? Что будет, если всё пойдёт максимально плохо? Опишите это."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто закончите фразу: «В самом худшем случае...»"
+
+  - index: 2
+    instruction_ru: "Теперь представьте ЛУЧШИЙ вариант. Что будет, если всё сложится максимально хорошо? Опишите этот сценарий."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Представьте идеальный исход. Что произойдёт, если всё пойдёт наилучшим образом? Даже если это кажется маловероятным — опишите."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто закончите фразу: «В лучшем случае...»"
+
+  - index: 3
+    instruction_ru: "А теперь — НАИБОЛЕЕ ВЕРОЯТНЫЙ вариант. Учитывая ваш опыт и реальные обстоятельства, что скорее всего произойдёт на самом деле? Обычно реальность ближе к середине."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Отступите на шаг и подумайте: если бы вы давали прогноз другу в такой же ситуации, что бы вы сказали? Что реалистичнее всего произойдёт?"
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто закончите фразу: «Скорее всего...»"
+
+outcome:
+  pre_rating: {type: rating, label: "Уровень катастрофизации до", scale: "0-10"}
+  post_rating: {type: rating, label: "Уровень катастрофизации после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: C2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

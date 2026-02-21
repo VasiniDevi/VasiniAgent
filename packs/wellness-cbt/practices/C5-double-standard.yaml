@@ -1,0 +1,61 @@
+id: C5
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Двойной стандарт"
+name_en: "Double Standard Technique"
+category: cognitive
+goal: "Обнаружить двойной стандарт в самооценке и применить к себе ту же доброту, что и к другу"
+duration_min: 3
+duration_max: 5
+priority_rank: 28
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 3
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: 8
+
+maintaining_cycles: [self_criticism, perfectionism]
+
+steps:
+  - index: 1
+    instruction_ru: "Представьте, что ваш близкий друг оказался в точно такой же ситуации и говорит о себе то же, что вы думаете о себе. Что бы вы ему сказали? Какие слова поддержки нашли бы?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Подумайте о человеке, которого вы любите. Если бы он пришёл к вам и сказал о себе то, что вы сейчас думаете о себе — как бы вы его поддержали?"
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто закончите фразу: «Если бы мой друг так думал о себе, я бы сказал(а)...»"
+
+  - index: 2
+    instruction_ru: "А теперь заметьте разницу: почему к другу вы относитесь мягче, чем к себе? Что мешает применить те же слова к себе? Просто отметьте этот двойной стандарт."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Сравните: вы только что нашли добрые слова для друга. А что вы говорите себе? Заметьте — стандарт для себя строже. Это и есть двойной стандарт."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто ответьте — вы к себе строже, чем к другу? Да или нет?"
+
+  - index: 3
+    instruction_ru: "Теперь попробуйте переписать свою самокритику, используя тот же тон, что вы использовали для друга. Обратитесь к себе с теми же словами поддержки."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Возьмите слова, которые вы нашли для друга в шаге 1, и адресуйте их себе. Начните с «Я...» вместо «Ты...»."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто скопируйте то, что сказали бы другу, и замените «ты» на «я»."
+
+outcome:
+  pre_rating: {type: rating, label: "Уровень самокритики до", scale: "0-10"}
+  post_rating: {type: rating, label: "Уровень самокритики после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: C5
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

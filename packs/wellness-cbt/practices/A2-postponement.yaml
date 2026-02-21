@@ -1,0 +1,61 @@
+id: A2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Отложенная руминация"
+name_en: "Worry Postponement"
+category: attention
+goal: "Научиться откладывать руминацию на определённое время и перенаправлять внимание"
+duration_min: 2
+duration_max: 5
+priority_rank: 15
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry]
+
+steps:
+  - index: 1
+    instruction_ru: "Заметьте беспокойство или навязчивую мысль, которая сейчас крутится в голове. Назовите её коротко — о чём она?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Попробуйте сформулировать в одном предложении: что именно вас сейчас беспокоит? Например: «Я переживаю о работе» или «Думаю о вчерашнем разговоре»."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто скажите тему беспокойства одним-двумя словами."
+
+  - index: 2
+    instruction_ru: "Назначьте «время для беспокойства» — конкретное время позже сегодня, когда вы разрешите себе подумать об этом. Например, «в 18:00, 15 минут». Скажите себе: «Я подумаю об этом позже, сейчас — не время»."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Выберите любое время позже сегодня и скажите себе: «Я разрешаю себе подумать об этом в [время], а сейчас отпускаю». Это не значит игнорировать — просто отложить."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто скажите себе «я вернусь к этому через час» — и этого достаточно."
+
+  - index: 3
+    instruction_ru: "Теперь перенаправьте внимание на что-то внешнее: что вы видите прямо сейчас? Опишите один предмет вокруг вас. Это помогает «отцепиться» от мысли."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Посмотрите вокруг и выберите любой предмет. Опишите его: какого он цвета, формы, размера. Это простой способ переключить внимание."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто назовите три предмета, которые видите прямо сейчас."
+
+outcome:
+  pre_rating: {type: rating, label: "Захваченность беспокойством до", scale: "0-10"}
+  post_rating: {type: rating, label: "Захваченность беспокойством после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

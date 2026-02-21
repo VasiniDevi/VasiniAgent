@@ -1,0 +1,70 @@
+id: A1
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Тренировка внимания (ATT)"
+name_en: "Attention Training Technique"
+category: attention
+goal: "Развить гибкость внимания через переключение между внешними звуками"
+duration_min: 10
+duration_max: 12
+priority_rank: 20
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 10
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry, symptom_fixation]
+
+steps:
+  - index: 1
+    instruction_ru: "Найдите удобное положение и прислушайтесь к окружению. Выберите один внешний звук, на котором сосредоточитесь: тиканье часов, шум улицы, гудение техники — любой постоянный звук."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Просто прислушайтесь: какой звук вы слышите прямо сейчас? Это может быть что угодно — вентилятор, птицы за окном, шум машин."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: назовите любой один звук, который вы сейчас слышите."
+
+  - index: 2
+    instruction_ru: "Сфокусируйте всё внимание на этом звуке на 2 минуты. Если мысли уносят вас — мягко верните внимание обратно к звуку. Это нормально, что внимание убегает."
+    ui_mode: timer
+    checkpoint: false
+    fallback:
+      user_confused: "Просто слушайте выбранный звук. Когда заметите, что отвлеклись на мысли — спокойно вернитесь к звуку. Это и есть тренировка."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: попробуйте удержать внимание на звуке хотя бы 30 секунд."
+
+  - index: 3
+    instruction_ru: "Теперь переключите внимание на другой звук. Найдите второй звук в окружении и сосредоточьтесь на нём на 2 минуты. Старайтесь «отпустить» первый звук."
+    ui_mode: timer
+    checkpoint: false
+    fallback:
+      user_confused: "Найдите ещё один звук, отличный от первого. Переведите на него всё внимание, как будто настраиваете радио на новую волну."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто заметьте любой другой звук и послушайте его хотя бы 30 секунд."
+
+  - index: 4
+    instruction_ru: "Теперь попробуйте быстрое переключение: каждые 10-15 секунд переводите внимание с одного звука на другой. Представьте, что вы прожектор, который быстро перемещается между звуками."
+    ui_mode: timer
+    checkpoint: false
+    fallback:
+      user_confused: "Переключайте внимание между двумя звуками, как будто переключаете каналы. 10 секунд один звук — 10 секунд другой."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто переключитесь между двумя звуками пару раз, не торопясь."
+
+outcome:
+  pre_rating: {type: rating, label: "Гибкость внимания до", scale: "0-10"}
+  post_rating: {type: rating, label: "Гибкость внимания после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A1
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

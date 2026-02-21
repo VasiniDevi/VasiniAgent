@@ -1,0 +1,61 @@
+id: U2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "3-3-3 Заземление"
+name_en: "3-3-3 Grounding"
+category: micro
+goal: "Быстро вернуться в настоящий момент через сенсорное заземление"
+duration_min: 1
+duration_max: 1
+priority_rank: 1
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "Посмотрите вокруг и назовите 3 вещи, которые вы видите прямо сейчас. Опишите их коротко — цвет, форму, размер."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Просто посмотрите вокруг. Что вы видите? Назовите три любых предмета. Например: лампа, стол, окно."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: назовите хотя бы один предмет, который видите."
+
+  - index: 2
+    instruction_ru: "Теперь прислушайтесь: назовите 3 звука, которые вы слышите прямо сейчас. Любые — далёкие или близкие."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Закройте глаза на секунду и прислушайтесь. Что вы слышите? Это может быть тиканье часов, шум за окном, собственное дыхание."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: назовите хотя бы один звук, который слышите."
+
+  - index: 3
+    instruction_ru: "И наконец: отметьте 3 ощущения в теле прямо сейчас. Например: тепло ладоней, давление стула, прохлада воздуха на лице."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Обратите внимание на тело. Что вы чувствуете физически? Тепло, холод, давление, лёгкость? Назовите любые три ощущения."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: назовите хотя бы одно ощущение в теле прямо сейчас."
+
+outcome:
+  pre_rating: {type: rating, label: "Уровень тревоги до", scale: "0-10"}
+  post_rating: {type: rating, label: "Уровень тревоги после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
