@@ -1,0 +1,26 @@
+# Release Manifest Template
+# Write to: docs/releases/<plan-id>-release.yaml
+
+plan_id: "<plan-id>"
+plan_doc: "docs/plans/<plan-file>"
+design_doc: "docs/plans/<design-file>"
+completed_at: "<ISO-8601>"
+tasks:
+  - task_id: "task-XX"
+    commit_sha: "<sha>"
+    review_artifact: "docs/reviews/task-XX-review.md"
+    tier: "critical | normal | low"
+    breaking_change: false
+tests_run: 0
+tests_passed: 0
+lint_clean: true
+typecheck_clean: true
+build_clean: true
+risks:
+  - id: "risk-XX"
+    status: "mitigated | accepted"
+    description: "..."
+breaking_changes: []
+migration_steps: []
+rollback_plan: "Per-component rollback in review artifacts"
+recommended_next: []

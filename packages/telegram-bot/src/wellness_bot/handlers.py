@@ -176,26 +176,34 @@ async def handle_voice(message: TgMessage, bot: Bot) -> None:
     user_id = message.from_user.id
     _, _, _, voice = wellness._require_setup()
 
-    # Download voice file
-    assert message.voice is not None
-    file = await bot.get_file(message.voice.file_id)
-    assert file.file_path is not None
-    voice_data = io.BytesIO()
-    await bot.download_file(file.file_path, voice_data)
-    audio_bytes = voice_data.getvalue()
+    try:
+        # Download voice file
+        assert message.voice is not None
+        file = await bot.get_file(message.voice.file_id)
+        assert file.file_path is not None
+        voice_data = io.BytesIO()
+        await bot.download_file(file.file_path, voice_data)
+        audio_bytes = voice_data.getvalue()
 
-    # STT
-    text = await voice.speech_to_text(audio_bytes)
-    if not text.strip():
-        await message.answer("Не удалось распознать голосовое сообщение. Попробуй ещё раз?")
-        return
+        # STT
+        text = await voice.speech_to_text(audio_bytes)
+        if not text.strip():
+            await message.answer("Не удалось распознать голосовое сообщение. Попробуй ещё раз?")
+            return
 
-    # Process as text
-    reply = await wellness.process_text(user_id, text)
+        # Process as text
+        reply = await wellness.process_text(user_id, text)
 
-    # TTS — respond with voice
-    audio_reply = await voice.text_to_speech(reply)
-    await message.answer_voice(voice=BufferedInputFile(audio_reply, filename="reply.mp3"))
+        # TTS — respond with voice
+        try:
+            audio_reply = await voice.text_to_speech(reply)
+            await message.answer_voice(voice=BufferedInputFile(audio_reply, filename="reply.mp3"))
+        except Exception as e:
+            logger.exception(f"TTS failed for {user_id}, falling back to text")
+            await message.answer(reply)
+    except Exception as e:
+        logger.exception(f"Error processing voice from {user_id}")
+        await message.answer("Не удалось обработать голосовое. Попробуй текстом или ещё раз через минуту.")
 
 
 @router.message(F.text)
@@ -205,5 +213,9 @@ async def handle_text(message: TgMessage) -> None:
     assert message.from_user is not None
     assert message.text is not None
     user_id = message.from_user.id
-    reply = await wellness.process_text(user_id, message.text)
-    await message.answer(reply)
+    try:
+        reply = await wellness.process_text(user_id, message.text)
+        await message.answer(reply)
+    except Exception as e:
+        logger.exception(f"Error processing message from {user_id}")
+        await message.answer("Произошла ошибка. Попробуй ещё раз через минуту.")

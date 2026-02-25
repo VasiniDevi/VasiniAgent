@@ -27,7 +27,7 @@ class AnthropicProvider:
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json",
             },
-            timeout=60.0,
+            timeout=120.0,
         )
 
     def _format_messages(self, messages: list[Message]) -> list[dict]:
