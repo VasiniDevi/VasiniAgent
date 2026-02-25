@@ -1,0 +1,61 @@
+id: A3
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Отстранённое наблюдение"
+name_en: "Detached Mindfulness"
+category: attention
+goal: "Научиться наблюдать мысли со стороны, не вовлекаясь в их содержание"
+duration_min: 2
+duration_max: 5
+priority_rank: 16
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry, self_criticism]
+
+steps:
+  - index: 1
+    instruction_ru: "Заметьте мысль, которая сейчас привлекает ваше внимание. Попробуйте увидеть её именно как мысль — не как факт, а как событие в вашем уме. Скажите себе: «У меня есть мысль, что...»"
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Представьте, что мысли — это облака, которые проплывают по небу. Вы наблюдаете за ними, но не хватаете. Попробуйте заметить одну такую «мысль-облако» прямо сейчас."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто назовите одну мысль, которая сейчас есть в голове, и добавьте перед ней: «Я замечаю мысль о...»"
+
+  - index: 2
+    instruction_ru: "Дайте этой мысли короткий ярлык. Например: «беспокойство о будущем», «самокритика», «прокручивание прошлого». Ярлык помогает создать дистанцию."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Просто придумайте короткое название для этой мысли, как заголовок. Например: «опять про работу» или «критик включился». Любое название подойдёт."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: выберите одно из этих: «беспокойство», «самокритика», «воспоминание» или «планирование»."
+
+  - index: 3
+    instruction_ru: "Теперь позвольте мысли просто быть — не боритесь с ней и не развивайте её. Представьте, что она проплывает мимо, как облако. Вы замечаете её, но не цепляетесь. Побудьте так 30 секунд."
+    ui_mode: timer
+    checkpoint: false
+    fallback:
+      user_confused: "Не нужно ничего делать с мыслью — не анализировать, не прогонять. Просто позвольте ей быть, как фоновому шуму. Она есть — и это нормально."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто сделайте три медленных вдоха и выдоха, позволяя мысли быть на фоне."
+
+outcome:
+  pre_rating: {type: rating, label: "Вовлечённость в мысль до", scale: "0-10"}
+  post_rating: {type: rating, label: "Вовлечённость в мысль после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A3
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

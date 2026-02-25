@@ -1,0 +1,68 @@
+id: M2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Мониторинг руминации"
+name_en: "Rumination Monitoring"
+category: monitoring
+goal: "Заметить руминацию, оценить интенсивность и отследить изменения"
+duration_min: 2
+duration_max: 5
+priority_rank: 10
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry]
+
+steps:
+  - index: 1
+    instruction_ru: "Обратите внимание: о чём вы сейчас думаете? Есть ли мысль, которая крутится по кругу? Попробуйте заметить триггер — что запустило эту цепочку мыслей."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Руминация — это когда одна и та же мысль крутится в голове снова и снова. Попробуйте заметить, есть ли сейчас такая мысль."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто назовите одну мысль, которая сейчас у вас в голове."
+
+  - index: 2
+    instruction_ru: "Оцените интенсивность этой мысли по шкале от 0 до 10, где 0 — совсем не беспокоит, а 10 — полностью захватывает внимание."
+    ui_mode: buttons
+    checkpoint: false
+    buttons:
+      - label: "0-3 (слабая)"
+        action: next
+      - label: "4-6 (средняя)"
+        action: next
+      - label: "7-10 (сильная)"
+        action: next
+    fallback:
+      user_confused: "Просто прикиньте: насколько сильно эта мысль вас захватывает прямо сейчас? 0 — совсем нет, 10 — полностью."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: мысль слабая, средняя или сильная?"
+
+  - index: 3
+    instruction_ru: "Теперь, когда вы заметили и оценили мысль — просто понаблюдайте: изменилось ли что-нибудь? Иногда одно только осознание снижает интенсивность."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Просто проверьте: стала ли мысль чуть тише или осталась такой же? Любой ответ подходит."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: просто скажите — стало легче, так же или тяжелее."
+
+outcome:
+  pre_rating: {type: rating, label: "Интенсивность руминации до", scale: "0-10"}
+  post_rating: {type: rating, label: "Интенсивность руминации после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: M2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
