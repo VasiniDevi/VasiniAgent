@@ -163,3 +163,105 @@ class StateTransition:
     reason_codes: list[str] = field(default_factory=list)
     timestamp: datetime | None = None
     skipped: list[SkippedState] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# 2-level FSM enums (coaching pipeline)
+# ---------------------------------------------------------------------------
+
+
+class ConversationState(str, Enum):
+    FREE_CHAT = "FREE_CHAT"
+    EXPLORE = "EXPLORE"
+    PRACTICE_OFFERED = "PRACTICE_OFFERED"
+    PRACTICE_ACTIVE = "PRACTICE_ACTIVE"
+    PRACTICE_PAUSED = "PRACTICE_PAUSED"
+    FOLLOW_UP = "FOLLOW_UP"
+    CRISIS = "CRISIS"
+
+
+class PracticeState(str, Enum):
+    CONSENT = "CONSENT"
+    BASELINE = "BASELINE"
+    STEP = "STEP"
+    CHECKPOINT = "CHECKPOINT"
+    ADAPT = "ADAPT"
+    WRAP_UP = "WRAP_UP"
+    FOLLOW_UP = "FOLLOW_UP"
+
+
+class CoachingDecision(str, Enum):
+    LISTEN = "LISTEN"
+    EXPLORE = "EXPLORE"
+    SUGGEST = "SUGGEST"
+    GUIDE = "GUIDE"
+    ANSWER = "ANSWER"
+
+
+class ConsentStatus(str, Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+
+
+# ---------------------------------------------------------------------------
+# Coaching pipeline dataclasses
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EmotionalState:
+    anxiety: float = 0.0
+    rumination: float = 0.0
+    avoidance: float = 0.0
+    perfectionism: float = 0.0
+    self_criticism: float = 0.0
+    symptom_fixation: float = 0.0
+
+    @property
+    def dominant(self) -> str:
+        fields = {
+            "anxiety": self.anxiety,
+            "rumination": self.rumination,
+            "avoidance": self.avoidance,
+            "perfectionism": self.perfectionism,
+            "self_criticism": self.self_criticism,
+            "symptom_fixation": self.symptom_fixation,
+        }
+        return max(fields, key=fields.get)  # type: ignore[arg-type]
+
+
+@dataclass
+class ContextState:
+    risk_level: str
+    emotional_state: EmotionalState
+    readiness_for_practice: float
+    coaching_hypotheses: list[str]
+    confidence: float
+    candidate_constraints: list[str]
+
+
+@dataclass
+class OpportunityResult:
+    opportunity_score: float
+    allow_proactive_suggest: bool
+    reason_codes: list[str]
+    cooldown_until: str | None = None
+
+
+@dataclass
+class PracticeCandidateRanked:
+    practice_id: str
+    final_score: float
+    confidence: float
+    reason_codes: list[str]
+    blocked_by: list[str] | None = None
+    alternative_ids: list[str] | None = None
+
+
+@dataclass
+class CoachDecision:
+    decision: CoachingDecision
+    selected_practice_id: str | None = None
+    style: str = "warm_supportive"
+    must_ask_consent: bool = False
