@@ -16,6 +16,7 @@ from vasini.llm.providers import Message
 from vasini.llm.router import LLMRouter, LLMRouterConfig, ModelTier
 from vasini.runtime.agent import AgentRuntime
 
+from wellness_bot.coaching.pipeline import CoachingPipeline, PipelineConfig
 from wellness_bot.config import BotConfig
 from wellness_bot.session_store import SessionStore
 from wellness_bot.voice import VoicePipeline
@@ -33,6 +34,7 @@ class WellnessBot:
         self.voice: VoicePipeline | None = None
         self.agent_runtime: AgentRuntime | None = None
         self.provider: AnthropicProvider | None = None
+        self.pipeline: CoachingPipeline | None = None
 
     async def setup(self) -> None:
         """Initialize all subsystems."""
@@ -69,6 +71,12 @@ class WellnessBot:
         )
         llm_router = LLMRouter(config=llm_config)
         self.agent_runtime = AgentRuntime(config=agent_config, llm_router=llm_router)
+
+        # Coaching pipeline
+        self.pipeline = CoachingPipeline(
+            llm_provider=self.provider,
+            config=PipelineConfig(db_path=self.config.db_path),
+        )
 
     def _require_setup(self) -> tuple[SessionStore, AnthropicProvider, AgentRuntime, VoicePipeline]:
         """Assert all subsystems are initialized and return them."""
@@ -123,6 +131,15 @@ class WellnessBot:
         await store.reset_missed_checkins(user_id)
 
         return reply
+
+    async def process_message(self, user_id: int, text: str) -> str:
+        """Process a message through the coaching pipeline, with legacy fallback."""
+        if self.pipeline:
+            try:
+                return await self.pipeline.process(str(user_id), text)
+            except Exception:
+                logger.exception(f"Pipeline failed for {user_id}, falling back to legacy")
+        return await self.process_text(user_id, text)
 
     async def shutdown(self) -> None:
         if self.store:
@@ -192,7 +209,7 @@ async def handle_voice(message: TgMessage, bot: Bot) -> None:
             return
 
         # Process as text
-        reply = await wellness.process_text(user_id, text)
+        reply = await wellness.process_message(user_id, text)
 
         # TTS — respond with voice
         try:
@@ -214,7 +231,7 @@ async def handle_text(message: TgMessage) -> None:
     assert message.text is not None
     user_id = message.from_user.id
     try:
-        reply = await wellness.process_text(user_id, message.text)
+        reply = await wellness.process_message(user_id, message.text)
         await message.answer(reply)
     except Exception as e:
         logger.exception(f"Error processing message from {user_id}")
