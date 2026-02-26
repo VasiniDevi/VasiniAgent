@@ -1,0 +1,53 @@
+id: U4
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Облако"
+name_en: "Cloud"
+category: micro
+goal: "Наблюдение за мыслью как за проходящим облаком"
+duration_min: 1
+duration_max: 1
+priority_rank: 6
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination]
+
+steps:
+  - index: 1
+    instruction_ru: "Какая мысль сейчас крутится?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Напишите мысль, которая занимает голову. Любую — первую, что придёт."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Закончите: «В голове крутится...»"
+
+  - index: 2
+    instruction_ru: "Представьте её как облако. Наблюдайте, как она проплывает. Не хватайтесь."
+    ui_mode: timer
+    timer_seconds: 60
+    checkpoint: true
+    fallback:
+      user_confused: "Просто смотрите на мысль со стороны, как на облако в небе. Оно проплывёт. Не нужно его ловить или прогонять."
+      cannot_now: "Не страшно. Сам факт, что вы заметили мысль — уже наблюдение."
+      too_hard: "Если мысль не уходит — это нормально. Просто заметьте: «О, она ещё здесь». Без борьбы."
+
+outcome:
+  pre_rating: {type: rating, label: "Захваченность мыслью до", scale: "0-10"}
+  post_rating: {type: rating, label: "Захваченность мыслью после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U4
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

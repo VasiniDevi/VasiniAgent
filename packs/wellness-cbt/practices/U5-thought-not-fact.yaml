@@ -1,0 +1,52 @@
+id: U5
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Мысль — не факт"
+name_en: "Thought Is Not a Fact"
+category: micro
+goal: "Быстрая дефьюжн: отделение себя от мысли одной фразой"
+duration_min: 1
+duration_max: 1
+priority_rank: 7
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [self_criticism]
+
+steps:
+  - index: 1
+    instruction_ru: "Какая мысль давит прямо сейчас?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Напишите мысль, которая сейчас кажется правдой и давит. Например: «Я не справлюсь», «Я неудачник»."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Закончите: «Я думаю, что...»"
+
+  - index: 2
+    instruction_ru: "Скажите: «У меня есть мысль, что [ваша мысль]. Это мысль, а не реальность». Возвращайтесь к делу."
+    ui_mode: text
+    checkpoint: true
+    fallback:
+      user_confused: "Просто добавьте перед мыслью: «У меня есть мысль, что...» Это создаёт дистанцию. Мысль — это событие в голове, не факт."
+      cannot_now: "Не страшно. Сам факт, что вы заметили мысль — это уже метакогниция."
+      too_hard: "Мысль «я не справлюсь» — это мысль, а не приговор. Вы уже справляетесь — вот прямо сейчас."
+
+outcome:
+  pre_rating: {type: rating, label: "Убеждённость в мысли до", scale: "0-10"}
+  post_rating: {type: rating, label: "Убеждённость в мысли после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U5
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

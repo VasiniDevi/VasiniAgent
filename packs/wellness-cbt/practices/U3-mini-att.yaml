@@ -1,0 +1,53 @@
+id: U3
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Мини-ATT"
+name_en: "Mini-ATT"
+category: micro
+goal: "Быстрое переключение внимания через слуховой фокус"
+duration_min: 1
+duration_max: 2
+priority_rank: 4
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry]
+
+steps:
+  - index: 1
+    instruction_ru: "Выберите 3 звука вокруг вас прямо сейчас."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Прислушайтесь: что слышите? Часы, вентилятор, машины, дыхание, тишину? Назовите три любых звука."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Назовите хотя бы один звук, который слышите прямо сейчас."
+
+  - index: 2
+    instruction_ru: "Переключайтесь между ними каждые 10 секунд в течение 1 минуты."
+    ui_mode: timer
+    timer_seconds: 60
+    checkpoint: true
+    fallback:
+      user_confused: "Слушайте первый звук 10 секунд, потом второй, потом третий. И снова по кругу. Таймер поможет."
+      cannot_now: "Не страшно. Само переключение внимания — уже тренировка."
+      too_hard: "Давайте проще: просто послушайте один звук 30 секунд, полностью сфокусировавшись на нём."
+
+outcome:
+  pre_rating: {type: rating, label: "Захваченность мыслями до", scale: "0-10"}
+  post_rating: {type: rating, label: "Захваченность мыслями после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U3
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
