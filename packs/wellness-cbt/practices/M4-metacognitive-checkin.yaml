@@ -1,0 +1,57 @@
+id: M4
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Метакогнитивный check-in"
+name_en: "Metacognitive Check-in"
+category: monitoring
+goal: "Замечание режима мышления — объектный vs метакогнитивный"
+duration_min: 1
+duration_max: 2
+priority_rank: 3
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "Прямо сейчас вы думаете О мысли или НАБЛЮДАЕТЕ за процессом мышления?"
+    ui_mode: buttons
+    checkpoint: false
+    buttons:
+      - label: "Думаю о мысли"
+        action: next
+      - label: "Наблюдаю за мышлением"
+        action: next
+    fallback:
+      user_confused: "Простой вопрос: вы сейчас внутри мысли (крутите её, анализируете) или смотрите на неё со стороны (замечаете, что думаете)?"
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Давайте упростим: вы сейчас «в голове» или «наблюдаете за головой»?"
+
+  - index: 2
+    instruction_ru: "Попробуйте переключиться в режим наблюдателя. Просто заметьте: что делает ваш ум прямо сейчас?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Не анализируйте, просто опишите: ум занят, спокоен, перескакивает, зацикливается?"
+      cannot_now: "Всё в порядке. Сам факт, что вы попробовали — уже метакогниция."
+      too_hard: "Просто заметьте одно слово, описывающее состояние ума: шумит, тихо, бегает, стоит?"
+
+outcome:
+  pre_rating: {type: rating, label: "Режим мышления", scale: "объектный-метакогнитивный"}
+  post_rating: {type: rating, label: "Режим мышления после", scale: "объектный-метакогнитивный"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: M4
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
