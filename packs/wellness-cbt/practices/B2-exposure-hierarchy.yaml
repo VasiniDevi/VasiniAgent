@@ -1,0 +1,70 @@
+id: B2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Иерархия экспозиций"
+name_en: "Exposure Hierarchy"
+category: behavioral
+goal: "Постепенное столкновение с избегаемыми ситуациями"
+duration_min: 10
+duration_max: 20
+priority_rank: 23
+
+prerequisites:
+  needs_formulation: true
+  min_time_budget: 10
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [avoidance]
+
+steps:
+  - index: 1
+    instruction_ru: "Какой ситуации вы избегаете?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Подумайте: что вы откладываете, обходите стороной, или от чего убегаете? Это может быть место, разговор, действие."
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Закончите фразу: «Я стараюсь не...» — первое, что придёт."
+
+  - index: 2
+    instruction_ru: "Составьте лестницу от 0 (совсем не страшно) до 10 (самое страшное). Напишите 3-5 ступеней."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Разбейте страх на уровни. Например: 2 — подумать об этом, 4 — обсудить, 6 — подготовиться, 8 — сделать. Какие ступени у вас?"
+      cannot_now: "Хорошо, вернёмся к лестнице когда будете готовы."
+      too_hard: "Давайте упростим: назовите самый лёгкий шаг (на 2-3) и самый тяжёлый (на 8-9)."
+
+  - index: 3
+    instruction_ru: "Выберите ступень на 2-3 из 10. Что конкретно вы можете сделать на этой ступени?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Найдите шаг, который кажется немного некомфортным, но выполнимым. Что это за действие?"
+      cannot_now: "Не страшно. Лестница уже построена — это половина дела."
+      too_hard: "Какой самый маленький шаг в сторону этой ситуации вы можете представить?"
+
+  - index: 4
+    instruction_ru: "Когда вы это сделаете? Назовите конкретный день и время."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Просто выберите: какой день на этой неделе? Утро, день или вечер?"
+      cannot_now: "Хорошо. Само решение уже важно — даже если конкретный момент выберете позже."
+      too_hard: "Давайте упростим: в ближайшие 3 дня — реалистично?"
+
+outcome:
+  pre_rating: {type: rating, label: "Уровень избегания до", scale: "0-10"}
+  post_rating: {type: rating, label: "Уровень избегания после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: B2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

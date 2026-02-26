@@ -1,0 +1,70 @@
+id: B4
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Отказ от безопасного поведения"
+name_en: "Safety Behavior Drop"
+category: behavioral
+goal: "Устранение поведения, поддерживающего тревогу"
+duration_min: 5
+duration_max: 10
+priority_rank: 26
+
+prerequisites:
+  needs_formulation: true
+  min_time_budget: 5
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [avoidance, symptom_fixation]
+
+steps:
+  - index: 1
+    instruction_ru: "Какое «безопасное поведение» вы используете? (репетируете фразы, избегаете взгляда, перепроверяете, держитесь за телефон...)"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Безопасное поведение — это то, что вы делаете, чтобы снизить тревогу в моменте. Перепроверки, избегание, репетиции, перестраховка. Что из этого вам знакомо?"
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Подумайте: что вы делаете, чтобы «перестраховаться» в тревожных ситуациях?"
+
+  - index: 2
+    instruction_ru: "Что вы предсказываете произойдёт, если НЕ сделаете это?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Представьте: вы в тревожной ситуации и НЕ делаете своё безопасное поведение. Что, по-вашему, случится?"
+      cannot_now: "Хорошо, обдумайте это в спокойной обстановке."
+      too_hard: "Закончите: «Если я не сделаю [поведение], то...»"
+
+  - index: 3
+    instruction_ru: "Попробуйте отказаться от этого поведения в ближайшей подходящей ситуации. Что произошло на самом деле?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Когда будете в похожей ситуации — не делайте это одно действие. Потом опишите: что реально произошло?"
+      cannot_now: "Не страшно. Запомните план — попробуете, когда будете готовы."
+      too_hard: "Можно начать с маленького: сократите поведение вдвое, вместо полного отказа."
+
+  - index: 4
+    instruction_ru: "Сравните предсказание и результат. Что вы узнали?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Ваш прогноз был: [X]. Реально случилось: [Y]. Насколько прогноз совпал с реальностью?"
+      cannot_now: "Не страшно. Главное — вы попробовали."
+      too_hard: "Просто ответьте: то, чего вы боялись — случилось или нет?"
+
+outcome:
+  pre_rating: {type: rating, label: "Убеждённость в необходимости поведения до", scale: "0-10"}
+  post_rating: {type: rating, label: "Убеждённость в необходимости поведения после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: B4
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

@@ -1,0 +1,70 @@
+id: B5
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Гигиена сна (CBT-I)"
+name_en: "Sleep Hygiene (CBT-I Basics)"
+category: behavioral
+goal: "Улучшение сна через контроль стимулов и режим"
+duration_min: 5
+duration_max: 10
+priority_rank: 27
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 5
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [insomnia]
+
+steps:
+  - index: 1
+    instruction_ru: "Во сколько вы обычно ложитесь и встаёте? Сколько времени засыпаете?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Просто напишите примерно: ложусь в [время], встаю в [время], засыпаю за [минуты]."
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Прикиньте: сколько часов вы обычно спите? И легко ли засыпаете?"
+
+  - index: 2
+    instruction_ru: "Правило 1: кровать = только сон. Не можете заснуть 20 минут — встаньте, займитесь чем-то спокойным, вернитесь когда захотите спать."
+    ui_mode: text
+    checkpoint: true
+    fallback:
+      user_confused: "Идея простая: если лежите и не засыпаете — не мучайтесь. Встаньте, почитайте, попейте воды. Вернитесь, когда потянет в сон."
+      cannot_now: "Не страшно. Запомните это правило — попробуете сегодня ночью."
+      too_hard: "Начните с малого: если через 20 минут не уснули — просто сядьте на кровати и подышите."
+
+  - index: 3
+    instruction_ru: "Правило 2: фиксированное время подъёма, даже если плохо спали. Какое время подъёма реалистично для вас каждый день?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Выберите время, в которое вы можете вставать КАЖДЫЙ день — и в будни, и в выходные. Это якорь для биоритмов."
+      cannot_now: "Хорошо, подумайте об этом. Фиксированный подъём — самый мощный инструмент."
+      too_hard: "Просто назовите время, в которое вы обычно встаёте в будни. Начнём с этого."
+
+  - index: 4
+    instruction_ru: "Правило 3: буферная зона 1 час перед сном — без экранов, без решения проблем. Что вы можете делать в этот час?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "За час до сна — тихие дела: чтение бумажной книги, лёгкая растяжка, тёплый душ, музыка без слов. Что из этого вам подходит?"
+      cannot_now: "Не страшно. Три правила записаны — внедряйте по одному."
+      too_hard: "Начните хотя бы с 30 минут без телефона перед сном. Телефон — на зарядку в другую комнату."
+
+outcome:
+  pre_rating: {type: rating, label: "Качество сна до", scale: "0-10"}
+  post_rating: {type: rating, label: "Качество сна после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: B5
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

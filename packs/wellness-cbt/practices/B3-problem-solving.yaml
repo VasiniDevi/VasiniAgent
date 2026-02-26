@@ -1,0 +1,79 @@
+id: B3
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Решение проблем"
+name_en: "Structured Problem-Solving"
+category: behavioral
+goal: "Структурированный подход к реальной проблеме вместо руминации"
+duration_min: 10
+duration_max: 15
+priority_rank: 24
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 10
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination]
+
+steps:
+  - index: 1
+    instruction_ru: "Определите проблему одним предложением. Конкретно, без «вообще всё плохо»."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Попробуйте закончить: «Конкретная проблема, которую я хочу решить — это...». Одно предложение, одна проблема."
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Если проблем много — выберите одну, самую актуальную прямо сейчас."
+
+  - index: 2
+    instruction_ru: "Сгенерируйте 3-5 вариантов решения. Любые, даже дурацкие."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Мозговой штурм: критика запрещена. Пишите всё, что приходит в голову. Глупые варианты тоже — они иногда ведут к умным."
+      cannot_now: "Хорошо, вернёмся когда будет настроение на мозговой штурм."
+      too_hard: "Давайте начнём с двух: что бы вы посоветовали другу с такой проблемой? А что ещё?"
+
+  - index: 3
+    instruction_ru: "Для каждого варианта: плюсы и минусы?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Для каждого варианта — одно «за» и одно «против». Не нужен длинный анализ, просто быстрая прикидка."
+      cannot_now: "Не страшно, варианты уже есть — это главное."
+      too_hard: "Давайте упростим: какой вариант кажется самым реалистичным?"
+
+  - index: 4
+    instruction_ru: "Выберите один вариант и составьте план первого шага."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Выберите вариант, который набрал больше плюсов. Теперь: что конкретно нужно сделать первым?"
+      cannot_now: "Хорошо. Варианты записаны — можно вернуться к выбору позже."
+      too_hard: "Какой вариант вызывает меньше всего сопротивления? Начните с него."
+
+  - index: 5
+    instruction_ru: "Когда вы сделаете первый шаг? Конкретно: что, где, когда."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Формула: «Я сделаю [что] в [где] в [когда]». Заполните три слота."
+      cannot_now: "Не страшно. План есть — это уже не руминация, а действие."
+      too_hard: "Когда в ближайшие 48 часов у вас будет 10 свободных минут? Там и начнёте."
+
+outcome:
+  pre_rating: {type: rating, label: "Ощущение тупика до", scale: "0-10"}
+  post_rating: {type: rating, label: "Ощущение тупика после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: B3
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
