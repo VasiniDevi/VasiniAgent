@@ -6,7 +6,7 @@ base system prompt, not as rigid step-by-step programs.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
