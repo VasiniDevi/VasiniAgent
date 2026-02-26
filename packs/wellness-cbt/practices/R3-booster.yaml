@@ -1,0 +1,70 @@
+id: R3
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Бустер-сессия"
+name_en: "Booster Session"
+category: relapse_prevention
+goal: "Поддержание прогресса и освежение навыков"
+duration_min: 10
+duration_max: 15
+priority_rank: 38
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 10
+  min_readiness: maintenance
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "Как дела с тех пор, как мы последний раз общались? Общее состояние 0-10."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Просто оцените: от 0 (совсем плохо) до 10 (отлично). Как вы себя чувствуете в целом?"
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Одним словом: лучше, так же или хуже, чем раньше?"
+
+  - index: 2
+    instruction_ru: "Использовали ли вы навыки, которые освоили? Какие?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Вспомните: DM, откладывание, заземление, эксперименты — использовали что-нибудь?"
+      cannot_now: "Хорошо, подумайте об этом."
+      too_hard: "Был ли хоть один момент, когда вы поймали мысль и не погрузились в неё?"
+
+  - index: 3
+    instruction_ru: "Были ли трудности или откаты? Что происходило?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Были ли моменты, когда казалось, что всё вернулось? Или когда инструменты не работали?"
+      cannot_now: "Не страшно. Откаты — нормальная часть процесса."
+      too_hard: "Просто ответьте: были трудности или нет? Если да — какие?"
+
+  - index: 4
+    instruction_ru: "Давайте освежим один ключевой навык. Какой был самым полезным для вас?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Из всего, что мы делали — что помогало больше всего? DM? Откладывание? Эксперименты? Заземление?"
+      cannot_now: "Не страшно. Сам факт, что мы поговорили — уже бустер."
+      too_hard: "Давайте я предложу: попробуем быстрый DM или заземление прямо сейчас?"
+
+outcome:
+  pre_rating: {type: rating, label: "Общее состояние", scale: "0-10"}
+  post_rating: {type: rating, label: "Общее состояние после бустера", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: R3
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

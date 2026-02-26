@@ -1,0 +1,79 @@
+id: R1
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Карта навыков (Blueprint)"
+name_en: "Skills Blueprint"
+category: relapse_prevention
+goal: "Консолидация выученного и план на случай ухудшения"
+duration_min: 15
+duration_max: 20
+priority_rank: 36
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 15
+  min_readiness: maintenance
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "Что было проблемой, когда вы начинали?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Вспомните, с чем вы обратились. Что больше всего мешало? Тревога, руминация, избегание, бессонница?"
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Опишите одним предложением: что было главной трудностью?"
+
+  - index: 2
+    instruction_ru: "Что поддерживало проблему? (какой цикл, какие привычки)"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Какие паттерны вы заметили? Например: руминация → избегание → ещё больше тревоги. Или: перфекционизм → откладывание → самокритика."
+      cannot_now: "Хорошо, подумайте об этом позже."
+      too_hard: "Что вы делали, когда становилось хуже? Это и есть поддерживающий цикл."
+
+  - index: 3
+    instruction_ru: "Какие техники помогли больше всего? Назовите 2-3."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Вспомните практики, которые мы делали. Какие запомнились? Какие хотелось бы повторить?"
+      cannot_now: "Не страшно, список техник можно составить позже."
+      too_hard: "Назовите хотя бы одну вещь, которая помогала, когда было плохо."
+
+  - index: 4
+    instruction_ru: "Какие ранние признаки ухудшения вы теперь можете заметить?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Что обычно происходит ДО того, как становится по-настоящему плохо? Плохой сон, раздражительность, избегание, руминация?"
+      cannot_now: "Хорошо. Это важный пункт — вернитесь к нему позже."
+      too_hard: "Подумайте: что первым меняется, когда вам становится хуже? Сон? Настроение? Энергия?"
+
+  - index: 5
+    instruction_ru: "Ваш план действий при ухудшении: что делать в первые 24 часа?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Составьте простой план: если замечу [ранний признак], я сделаю [действие]. Например: «если не сплю 2 ночи — делаю A3 и пишу сюда»."
+      cannot_now: "Не страшно. Blueprint можно дополнить в любой момент."
+      too_hard: "Назовите одно действие, которое вы точно сделаете, если станет хуже."
+
+outcome:
+  pre_rating: {type: rating, label: "Готовность к самостоятельности до", scale: "0-10"}
+  post_rating: {type: rating, label: "Готовность к самостоятельности после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: R1
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
