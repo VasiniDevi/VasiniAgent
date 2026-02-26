@@ -1,0 +1,61 @@
+id: C6
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Пирог ответственности"
+name_en: "Responsibility Pie"
+category: cognitive
+goal: "Разбор персонализации — реалистичное распределение ответственности"
+duration_min: 5
+duration_max: 7
+priority_rank: 32
+
+prerequisites:
+  needs_formulation: true
+  min_time_budget: 5
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [self_criticism]
+
+steps:
+  - index: 1
+    instruction_ru: "Опишите ситуацию, в которой вы чувствуете себя виноватым или ответственным."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Вспомните момент, когда вы сказали себе «это моя вина» или «я должен был сделать иначе». Что произошло?"
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Опишите одним предложением: за что вы себя вините?"
+
+  - index: 2
+    instruction_ru: "Перечислите ВСЕ возможные причины этой ситуации (другие люди, обстоятельства, случайность, ваш вклад)."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Представьте, что вы детектив. Какие факторы повлияли? Другие люди, обстоятельства, время, случайность, и да — ваш вклад тоже."
+      cannot_now: "Хорошо, подумайте об этом позже."
+      too_hard: "Давайте начнём с простого: кроме вас, кто или что ещё повлияло на ситуацию?"
+
+  - index: 3
+    instruction_ru: "Теперь распределите проценты: сколько % приходится на каждую причину? Какой % — реально ваш?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Прикиньте грубо: если вся ситуация = 100%, сколько % — обстоятельства? Сколько — другие люди? Сколько — ваш реальный вклад?"
+      cannot_now: "Не страшно. Уже то, что вы увидели другие причины — меняет картину."
+      too_hard: "Давайте упростим: ваша ответственность — это больше половины, примерно половина, или меньше четверти?"
+
+outcome:
+  pre_rating: {type: rating, label: "Ощущение вины до", scale: "0-10"}
+  post_rating: {type: rating, label: "Ощущение вины после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: C6
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

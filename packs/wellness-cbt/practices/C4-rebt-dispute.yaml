@@ -1,0 +1,70 @@
+id: C4
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Техники диспута (REBT)"
+name_en: "REBT Dispute"
+category: cognitive
+goal: "Активное оспаривание иррациональных убеждений и «долженствований»"
+duration_min: 5
+duration_max: 10
+priority_rank: 29
+
+prerequisites:
+  needs_formulation: true
+  min_time_budget: 5
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [perfectionism, self_criticism]
+
+steps:
+  - index: 1
+    instruction_ru: "Какое правило или требование к себе вы заметили? Например: «Я должен всё делать идеально»."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Подумайте: какое «должен» или «обязан» вы себе говорите? Это может быть «я должен быть лучше», «нельзя ошибаться», «я обязан справляться»."
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Закончите фразу: «Я должен...» или «Я не имею права...» — первое, что придёт."
+
+  - index: 2
+    instruction_ru: "Это факт или предпочтение? Можно ли жить, если это правило не выполнится?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Попробуйте так: если завтра это правило нарушится — мир рухнет? Или будет неприятно, но терпимо?"
+      cannot_now: "Хорошо, подумайте об этом в своём темпе."
+      too_hard: "Диспут — не атака на вас. Это проверка, работает ли правило. Если чувствуете давление — давайте попробуем мягче."
+
+  - index: 3
+    instruction_ru: "Помогает ли это правило вам в жизни? Или оно создаёт больше давления, чем пользы?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Представьте весы: на одной чаше — польза от этого правила, на другой — цена (стресс, вина, выгорание). Что перевешивает?"
+      cannot_now: "Не страшно, это важный вопрос, к которому можно вернуться."
+      too_hard: "Диспут — не атака на вас. Это проверка, работает ли правило. Если чувствуете давление — давайте попробуем мягче."
+
+  - index: 4
+    instruction_ru: "Попробуйте сформулировать более гибкую версию: «Я предпочитаю... но могу и...»"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Замените «должен» на «предпочитаю». Например: «Я предпочитаю делать хорошо, но могу и ошибиться — это нормально»."
+      cannot_now: "Хорошо. Уже то, что вы увидели правило — это большой шаг."
+      too_hard: "Это не про отказ от стандартов. Это про замену жёсткого «должен» на гибкое «хочу». Разница огромная."
+
+outcome:
+  pre_rating: {type: rating, label: "Убеждённость в правиле до", scale: "0-10"}
+  post_rating: {type: rating, label: "Убеждённость в правиле после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: C4
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
