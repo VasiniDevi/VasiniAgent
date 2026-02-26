@@ -160,18 +160,18 @@ class CoachingPipeline:
         start_time = time.monotonic()
         fsm = self._get_fsm(user_id)
 
-        # ── Step 1: Safety Gate ───────────────────────────────────────
+        # ── Step 1: Safety Gate (non-blocking) ─────────────────────────
         safety_result = self._safety_gate.check(text)
+        crisis_resources: str | None = None
         if safety_result.risk_level == "crisis":
-            fsm.enter_crisis()
             language = self._language_resolver.resolve(user_id, text)
-            response = _CRISIS_RESPONSES.get(language, _CRISIS_RESPONSES["en"])
+            crisis_resources = _CRISIS_RESPONSES.get(language, _CRISIS_RESPONSES["en"])
             logger.info(
-                "AUDIT | user=%s step=safety_gate result=crisis signals=%s",
+                "AUDIT | user=%s step=safety_gate result=crisis signals=%s action=continue_with_resources",
                 user_id,
                 safety_result.signals,
             )
-            return response
+            # Pipeline continues — agent helps AND provides resources
 
         # ── Step 2: Language Resolver ─────────────────────────────────
         language = self._language_resolver.resolve(user_id, text)
@@ -274,6 +274,10 @@ class CoachingPipeline:
             elapsed_ms,
             fsm.conversation_state.value,
         )
+
+        # Append crisis resources if safety gate flagged red
+        if crisis_resources:
+            response = f"{response}\n\n{crisis_resources}"
 
         # Add assistant response to dialogue window
         self._dialogue[user_id].append({"role": "assistant", "content": response})
