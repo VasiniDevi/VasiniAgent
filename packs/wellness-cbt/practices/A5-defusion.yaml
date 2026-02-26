@@ -1,0 +1,71 @@
+id: A5
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Дефьюжн"
+name_en: "Defusion (ACT)"
+category: attention
+goal: "Разрушение слияния с мыслью через изменение её формы"
+duration_min: 2
+duration_max: 5
+priority_rank: 18
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: action
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [self_criticism, rumination]
+
+steps:
+  - index: 1
+    instruction_ru: "Какая мысль вас сейчас захватила? Напишите её одним предложением."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Напишите мысль, которая крутится в голове. Одно предложение — то, что мозг повторяет снова и снова."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Закончите фразу: «Я постоянно думаю, что...»"
+
+  - index: 2
+    instruction_ru: "Теперь повторите эту мысль про себя быстро-быстро 30 секунд. Что происходит со словами?"
+    ui_mode: timer
+    timer_seconds: 30
+    checkpoint: true
+    fallback:
+      user_confused: "Просто повторяйте ключевое слово из мысли быстро-быстро. Через 30 секунд слова начнут терять смысл — это нормально."
+      cannot_now: "Не страшно, можно попробовать в другой момент."
+      too_hard: "Если эта техника ощущается как обесценивание ваших чувств — это не цель. Давайте попробуем что-то другое."
+
+  - index: 3
+    instruction_ru: "Попробуйте сказать: «У меня сейчас мысль, что...» и добавьте вашу мысль. Убеждённость изменилась?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Добавьте перед мыслью фразу «У меня сейчас мысль, что...» Это создаёт расстояние. Стала ли мысль менее убедительной?"
+      cannot_now: "Хорошо. Уже то, что вы заметили мысль — это не мало."
+      too_hard: "Если эта техника ощущается как обесценивание ваших чувств — это не цель. Давайте попробуем что-то другое."
+
+  - index: 4
+    instruction_ru: "Оцените: насколько вы сейчас «склеены» с этой мыслью? 0 — совсем не верю, 10 — полностью верю."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Просто назовите цифру от 0 до 10. 0 — мысль не имеет власти, 10 — полностью захватила."
+      cannot_now: "Не страшно, главное — вы попробовали."
+      too_hard: "Давайте проще: мысль всё ещё сильная или немного отпустило?"
+
+outcome:
+  pre_rating: {type: rating, label: "Убеждённость в мысли до", scale: "0-10"}
+  post_rating: {type: rating, label: "Убеждённость в мысли после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A5
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
