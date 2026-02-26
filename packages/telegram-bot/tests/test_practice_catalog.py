@@ -13,9 +13,17 @@ class TestPracticeCatalog:
         assert PRACTICES_DIR.exists(), f"Practices dir not found: {PRACTICES_DIR}"
         return PracticeLoader(practices_dir=PRACTICES_DIR)
 
-    def test_all_12_practices_load(self, loader):
+    def test_all_30_practices_load(self, loader):
         practices = loader.load_all()
-        expected_ids = {"M2", "M3", "A1", "A2", "A3", "A6", "C1", "C2", "C3", "C5", "B1", "U2"}
+        expected_ids = {
+            # Original 12
+            "M2", "M3", "A1", "A2", "A3", "A6", "C1", "C2", "C3", "C5", "B1", "U2",
+            # New 18
+            "M1", "M4", "A4", "A5", "C4", "C6",
+            "B2", "B3", "B4", "B5",
+            "R1", "R2", "R3",
+            "U1", "U3", "U4", "U5", "U6",
+        }
         assert set(practices.keys()) == expected_ids
 
     def test_all_have_steps(self, loader):

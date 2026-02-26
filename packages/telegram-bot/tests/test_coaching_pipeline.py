@@ -42,33 +42,27 @@ class TestSafeMessageProcessing:
 
 
 class TestCrisisMessage:
-    """Crisis messages trigger safety protocol and return crisis response."""
+    """Crisis messages are non-blocking: LLM is called AND crisis resources are appended."""
 
-    async def test_crisis_returns_crisis_response(self, mock_provider):
+    async def test_crisis_appends_crisis_resources(self, mock_provider):
         pipeline = CoachingPipeline(llm_provider=mock_provider)
         result = await pipeline.process("user1", "I want to kill myself")
 
-        # Crisis response should contain crisis line info
+        # Crisis resources are appended to the LLM response
         assert "988" in result or "crisis" in result.lower() or "help" in result.lower()
 
-    async def test_crisis_does_not_call_llm(self):
-        provider = AsyncMock()
-        provider.chat = AsyncMock()
-
-        pipeline = CoachingPipeline(llm_provider=provider)
+    async def test_crisis_still_calls_llm(self, mock_provider):
+        pipeline = CoachingPipeline(llm_provider=mock_provider)
         await pipeline.process("user1", "I want to kill myself")
 
-        # LLM should NOT be called for crisis messages
-        provider.chat.assert_not_called()
+        # Non-blocking: LLM IS called (context analyzer + response generator)
+        assert mock_provider.chat.call_count == 2
 
-    async def test_crisis_russian_returns_russian_response(self):
-        provider = AsyncMock()
-        provider.chat = AsyncMock()
-
-        pipeline = CoachingPipeline(llm_provider=provider)
+    async def test_crisis_russian_appends_russian_resources(self, mock_provider):
+        pipeline = CoachingPipeline(llm_provider=mock_provider)
         result = await pipeline.process("user1", "хочу покончить с собой")
 
-        # Should contain Russian crisis line number
+        # Should contain Russian crisis line number appended to response
         assert "8-800-2000-122" in result
 
 
