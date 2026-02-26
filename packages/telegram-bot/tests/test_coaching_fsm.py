@@ -7,6 +7,7 @@ from wellness_bot.protocol.types import (
     ConversationState,
     CoachingDecision,
     PracticeState,
+    SoftMode,
 )
 
 
@@ -285,3 +286,39 @@ class TestSerialization:
         data = fsm.to_dict()
         assert "conversation_state" in data
         assert "practice_state" in data
+        assert "soft_mode" in data
+
+    def test_round_trip_soft_mode(self, fsm: ConversationFSM) -> None:
+        fsm.set_mode(SoftMode.TEACHING)
+        data = fsm.to_dict()
+        restored = ConversationFSM.from_dict(data)
+        assert restored.soft_mode == SoftMode.TEACHING
+
+    def test_from_dict_without_soft_mode(self) -> None:
+        """Legacy dicts without soft_mode should derive it from state."""
+        data = {"conversation_state": "FOLLOW_UP", "practice_state": None}
+        restored = ConversationFSM.from_dict(data)
+        assert restored.soft_mode == SoftMode.REFLECTING
+
+
+class TestSoftModes:
+    """Soft modes: flexible, any-to-any switching."""
+
+    def test_initial_mode_is_exploring(self, fsm: ConversationFSM) -> None:
+        assert fsm.soft_mode == SoftMode.EXPLORING
+
+    def test_set_mode_freely(self, fsm: ConversationFSM) -> None:
+        fsm.set_mode(SoftMode.TEACHING)
+        assert fsm.soft_mode == SoftMode.TEACHING
+        fsm.set_mode(SoftMode.PRACTICING)
+        assert fsm.soft_mode == SoftMode.PRACTICING
+        fsm.set_mode(SoftMode.REFLECTING)
+        assert fsm.soft_mode == SoftMode.REFLECTING
+
+    def test_suggest_updates_mode(self, fsm: ConversationFSM) -> None:
+        fsm.transition(CoachingDecision.SUGGEST)
+        assert fsm.soft_mode == SoftMode.TEACHING
+
+    def test_explore_updates_mode(self, fsm: ConversationFSM) -> None:
+        fsm.transition(CoachingDecision.EXPLORE)
+        assert fsm.soft_mode == SoftMode.EXPLORING
