@@ -37,7 +37,15 @@ class RiskLevel(str, Enum):
     CRISIS = "CRISIS"
 
 
+class SafetyLevel(str, Enum):
+    """Non-blocking safety levels: agent always helps."""
+    GREEN = "green"      # Normal — help freely
+    YELLOW = "yellow"    # Suggest specialist alongside help
+    RED = "red"          # Provide crisis resources + stay available
+
+
 class CautionLevel(str, Enum):
+    """Deprecated: use SafetyLevel instead."""
     NONE = "none"
     MILD = "mild"
     ELEVATED = "elevated"
@@ -170,6 +178,14 @@ class StateTransition:
 # ---------------------------------------------------------------------------
 # 2-level FSM enums (coaching pipeline)
 # ---------------------------------------------------------------------------
+
+
+class SoftMode(str, Enum):
+    """Flexible conversation modes — agent freely switches between them."""
+    EXPLORING = "exploring"    # Listening, understanding
+    TEACHING = "teaching"      # Explaining concepts
+    PRACTICING = "practicing"  # Guiding through technique
+    REFLECTING = "reflecting"  # Discussing what happened
 
 
 class ConversationState(str, Enum):
