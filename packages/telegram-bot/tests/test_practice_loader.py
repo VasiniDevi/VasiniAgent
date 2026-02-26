@@ -140,6 +140,37 @@ resume_compatibility: {practice_id: BAD, version: "1.0", step_schema_hash: "sha2
         with pytest.raises(PracticeValidationError, match="fallback"):
             loader.load_all()
 
+    def test_relapse_prevention_category_valid(self, tmp_path):
+        """relapse_prevention should be an accepted category."""
+        content = """
+id: R1
+version: "1.0"
+step_schema_hash: "sha256:test"
+name_ru: "Карта навыков"
+name_en: "Skills Blueprint"
+category: relapse_prevention
+goal: "Консолидация выученного"
+duration_min: 15
+duration_max: 20
+priority_rank: 36
+prerequisites: {needs_formulation: false, min_time_budget: 15, min_readiness: maintenance}
+safety_overrides: {blocked_in_caution_elevated: false, blocked_if_distress_gte: null}
+maintaining_cycles: []
+steps:
+  - index: 1
+    instruction_ru: "Что было проблемой?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback: {user_confused: "a", cannot_now: "b", too_hard: "c"}
+outcome: {pre_rating: null, post_rating: null, completed: true, drop_reason: null, tracking: null}
+resume_compatibility: {practice_id: R1, version: "1.0", step_schema_hash: "sha256:test"}
+"""
+        (tmp_path / "R1-blueprint.yaml").write_text(content)
+        loader = PracticeLoader(practices_dir=tmp_path)
+        practices = loader.load_all()
+        assert "R1" in practices
+        assert practices["R1"].category == "relapse_prevention"
+
     def test_step_index_gap_fails(self, tmp_path):
         bad = """
 id: GAP

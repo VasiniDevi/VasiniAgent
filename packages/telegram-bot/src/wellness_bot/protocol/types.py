@@ -49,6 +49,7 @@ class PracticeCategory(str, Enum):
     COGNITIVE = "cognitive"
     BEHAVIORAL = "behavioral"
     MICRO = "micro"
+    RELAPSE_PREVENTION = "relapse_prevention"
 
 
 class Readiness(str, Enum):
@@ -65,6 +66,7 @@ class MaintainingCycle(str, Enum):
     PERFECTIONISM = "perfectionism"
     SELF_CRITICISM = "self_criticism"
     SYMPTOM_FIXATION = "symptom_fixation"
+    INSOMNIA = "insomnia"
 
 
 class UIMode(str, Enum):
