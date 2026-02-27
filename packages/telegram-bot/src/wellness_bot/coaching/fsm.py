@@ -12,6 +12,7 @@ from wellness_bot.protocol.types import (
     ConversationState,
     CoachingDecision,
     PracticeState,
+    SoftMode,
 )
 
 # States from which EXPLORE is a valid coaching decision
@@ -37,9 +38,21 @@ _PASSTHROUGH: frozenset[CoachingDecision] = frozenset(
 class ConversationFSM:
     """Two-level finite-state machine for the coaching conversation."""
 
+    # Map conversation states to soft modes
+    _STATE_TO_MODE: dict[ConversationState, SoftMode] = {
+        ConversationState.FREE_CHAT: SoftMode.EXPLORING,
+        ConversationState.EXPLORE: SoftMode.EXPLORING,
+        ConversationState.PRACTICE_OFFERED: SoftMode.TEACHING,
+        ConversationState.PRACTICE_ACTIVE: SoftMode.PRACTICING,
+        ConversationState.PRACTICE_PAUSED: SoftMode.EXPLORING,
+        ConversationState.FOLLOW_UP: SoftMode.REFLECTING,
+        ConversationState.CRISIS: SoftMode.EXPLORING,
+    }
+
     def __init__(self) -> None:
         self._conversation_state: ConversationState = ConversationState.FREE_CHAT
         self._practice_state: PracticeState | None = None
+        self._soft_mode: SoftMode = SoftMode.EXPLORING
 
     # ------------------------------------------------------------------
     # Properties
@@ -53,6 +66,15 @@ class ConversationFSM:
     def practice_state(self) -> PracticeState | None:
         return self._practice_state
 
+    @property
+    def soft_mode(self) -> SoftMode:
+        """Current soft mode — derived from state or manually set."""
+        return self._soft_mode
+
+    def set_mode(self, mode: SoftMode) -> None:
+        """Freely switch to any soft mode. No transition validation."""
+        self._soft_mode = mode
+
     # ------------------------------------------------------------------
     # Coaching-decision transitions
     # ------------------------------------------------------------------
@@ -65,12 +87,14 @@ class ConversationFSM:
         if decision == CoachingDecision.EXPLORE:
             if self._conversation_state in _EXPLORE_ALLOWED:
                 self._conversation_state = ConversationState.EXPLORE
+                self._soft_mode = self._STATE_TO_MODE[self._conversation_state]
                 return True
             return False
 
         if decision == CoachingDecision.SUGGEST:
             if self._conversation_state in _SUGGEST_ALLOWED:
                 self._conversation_state = ConversationState.PRACTICE_OFFERED
+                self._soft_mode = self._STATE_TO_MODE[self._conversation_state]
                 return True
             return False
 
@@ -159,6 +183,7 @@ class ConversationFSM:
             "practice_state": (
                 self._practice_state.value if self._practice_state is not None else None
             ),
+            "soft_mode": self._soft_mode.value,
         }
 
     @classmethod
@@ -170,4 +195,11 @@ class ConversationFSM:
         fsm._practice_state = (
             PracticeState(raw_practice) if raw_practice is not None else None
         )
+        raw_mode = data.get("soft_mode")
+        if raw_mode is not None:
+            fsm._soft_mode = SoftMode(raw_mode)
+        else:
+            fsm._soft_mode = cls._STATE_TO_MODE.get(
+                fsm._conversation_state, SoftMode.EXPLORING
+            )
         return fsm

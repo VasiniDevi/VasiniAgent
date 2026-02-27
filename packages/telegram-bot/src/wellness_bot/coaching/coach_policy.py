@@ -6,13 +6,15 @@ tells the response generator what to do next.
 
 The decision rules are evaluated top-to-bottom in strict priority order:
 
-1. Crisis override         -> LISTEN  (no practice)
+1. Red safety level        -> SUGGEST with crisis_resources (never refuse)
 2. No signal / no practices -> ANSWER
 3. Low confidence          -> EXPLORE
 4. Opportunity not allowed -> EXPLORE or LISTEN
 5. Strong practice match   -> SUGGEST
 6. Signals but weak match  -> GUIDE
 7. Default                 -> LISTEN
+
+Key change: crisis/red safety NEVER blocks. Agent always helps.
 """
 
 from __future__ import annotations
@@ -78,10 +80,18 @@ class CoachPolicyEngine:
             es.symptom_fixation,
         )
 
-        # -- Rule 1: Crisis -------------------------------------------------
-        if context.risk_level in ("high", "crisis"):
+        # -- Rule 1: Red safety — help AND provide resources -----------------
+        # Agent NEVER refuses. At red, we suggest stabilization + resources.
+        if context.risk_level in ("high", "crisis", "red"):
+            if ranked_practices:
+                return CoachDecision(
+                    decision=CoachingDecision.SUGGEST,
+                    selected_practice_id=ranked_practices[0].practice_id,
+                    style="warm_supportive",
+                    must_ask_consent=True,
+                )
             return CoachDecision(
-                decision=CoachingDecision.LISTEN,
+                decision=CoachingDecision.EXPLORE,
                 style="warm_supportive",
             )
 

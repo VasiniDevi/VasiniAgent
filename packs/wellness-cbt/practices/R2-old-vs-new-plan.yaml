@@ -1,0 +1,61 @@
+id: R2
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Старый vs Новый план (MCT)"
+name_en: "Old vs New Plan (MCT)"
+category: relapse_prevention
+goal: "Закрепление нового стиля реагирования на триггеры"
+duration_min: 10
+duration_max: 10
+priority_rank: 37
+
+prerequisites:
+  needs_formulation: true
+  min_time_budget: 10
+  min_readiness: maintenance
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [rumination, worry]
+
+steps:
+  - index: 1
+    instruction_ru: "Старый план: когда появлялся триггер → что вы делали? (руминация, worry, избегание → какой результат)"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Вспомните типичную ситуацию-триггер. Что раньше происходило? Например: мысль → руминация 2 часа → тревога → избегание."
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Закончите: «Раньше, когда [триггер], я [действие], и в итоге [результат]»."
+
+  - index: 2
+    instruction_ru: "Новый план: тот же триггер → что вы делаете теперь? (DM, postponement, действие → какой результат)"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Тот же триггер — но теперь у вас есть инструменты. DM, откладывание, микро-действие. Что вы делаете по-другому?"
+      cannot_now: "Хорошо, новый план можно сформулировать позже."
+      too_hard: "Закончите: «Теперь, когда [триггер], я [новое действие], и в итоге [результат]»."
+
+  - index: 3
+    instruction_ru: "Практикуйте новый план осознанно каждый день. Запишите: когда сегодня вы использовали новый план?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Был ли сегодня момент, когда вы поймали старый паттерн и переключились на новый? Если нет — ничего, завтра будет шанс."
+      cannot_now: "Не страшно. План записан — осталось тренироваться."
+      too_hard: "Если пока не было ситуации — просто прочитайте свой новый план. Это тоже тренировка."
+
+outcome:
+  pre_rating: {type: rating, label: "Использование старого плана", scale: "0-10"}
+  post_rating: {type: rating, label: "Использование нового плана", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: R2
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

@@ -17,10 +17,10 @@ This is the central integration point that orchestrates:
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from pathlib import Path
 
 from wellness_bot.coaching.safety_gate import SafetyGate
 from wellness_bot.coaching.language_resolver import LanguageResolver
@@ -30,6 +30,7 @@ from wellness_bot.coaching.practice_selector import PracticeSelector, PracticeCa
 from wellness_bot.coaching.coach_policy import CoachPolicyEngine
 from wellness_bot.coaching.output_safety import OutputSafetyCheck
 from wellness_bot.coaching.fsm import ConversationFSM
+from wellness_bot.coaching.knowledge_base import KnowledgeBaseCompiler
 from wellness_bot.protocol.types import CoachingDecision
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ class CoachingPipeline:
         llm_provider: object,
         config: PipelineConfig | None = None,
         catalog: list[PracticeCatalogEntry] | None = None,
+        practices_dir: Path | str | None = None,
     ) -> None:
         self._config = config or PipelineConfig()
         self._llm = llm_provider
@@ -121,6 +123,10 @@ class CoachingPipeline:
         # Initialize all components
         self._safety_gate = SafetyGate()
         self._language_resolver = LanguageResolver()
+        self._kb = KnowledgeBaseCompiler(
+            practices_dir or Path(__file__).resolve().parent.parent.parent.parent.parent
+            / "packs" / "wellness-cbt" / "practices"
+        )
         self._context_analyzer = ContextAnalyzer(
             llm_provider=llm_provider,
             model=self._config.context_model,
@@ -160,18 +166,18 @@ class CoachingPipeline:
         start_time = time.monotonic()
         fsm = self._get_fsm(user_id)
 
-        # ── Step 1: Safety Gate ───────────────────────────────────────
+        # ── Step 1: Safety Gate (non-blocking) ─────────────────────────
         safety_result = self._safety_gate.check(text)
+        crisis_resources: str | None = None
         if safety_result.risk_level == "crisis":
-            fsm.enter_crisis()
             language = self._language_resolver.resolve(user_id, text)
-            response = _CRISIS_RESPONSES.get(language, _CRISIS_RESPONSES["en"])
+            crisis_resources = _CRISIS_RESPONSES.get(language, _CRISIS_RESPONSES["en"])
             logger.info(
-                "AUDIT | user=%s step=safety_gate result=crisis signals=%s",
+                "AUDIT | user=%s step=safety_gate result=crisis signals=%s action=continue_with_resources",
                 user_id,
                 safety_result.signals,
             )
-            return response
+            # Pipeline continues — agent helps AND provides resources
 
         # ── Step 2: Language Resolver ─────────────────────────────────
         language = self._language_resolver.resolve(user_id, text)
@@ -227,12 +233,14 @@ class CoachingPipeline:
 
         # ── Step 7: Response Generator ────────────────────────────────
         response = await self._generate_response(
+            user_id=user_id,
             user_message=text,
             dialogue_window=dialogue_window,
             decision=decision.decision,
             language=language,
             practice_id=decision.selected_practice_id,
             style=decision.style,
+            safety_level=safety_result.risk_level,
         )
 
         # ── Step 8: Output Safety Check ───────────────────────────────
@@ -275,6 +283,10 @@ class CoachingPipeline:
             fsm.conversation_state.value,
         )
 
+        # Append crisis resources if safety gate flagged red
+        if crisis_resources:
+            response = f"{response}\n\n{crisis_resources}"
+
         # Add assistant response to dialogue window
         self._dialogue[user_id].append({"role": "assistant", "content": response})
 
@@ -283,69 +295,61 @@ class CoachingPipeline:
     async def _generate_response(
         self,
         *,
+        user_id: str,
         user_message: str,
         dialogue_window: list[dict[str, str]],
         decision: CoachingDecision,
         language: str,
         practice_id: str | None = None,
         style: str = "warm_supportive",
+        safety_level: str = "green",
     ) -> str:
         """Generate a response using the LLM based on the coaching decision.
 
-        Parameters
-        ----------
-        user_message:
-            The user's latest message.
-        dialogue_window:
-            Recent dialogue history.
-        decision:
-            The coaching decision (LISTEN, EXPLORE, SUGGEST, GUIDE, ANSWER).
-        language:
-            ISO 639-1 language code.
-        practice_id:
-            Selected practice ID (only for SUGGEST decision).
-        style:
-            Coaching style to use.
-
-        Returns
-        -------
-        str
-            Generated response text, or a safe fallback on failure.
+        Uses the KnowledgeBaseCompiler to build a rich system prompt with
+        practices, theory, decision rules, and communication personality.
         """
-        # Build system prompt based on decision
-        role_prompts = {
+        # Decision-specific directive appended to the KB system prompt
+        decision_directives = {
             CoachingDecision.LISTEN: (
-                "You are an empathetic listener. Reflect the user's feelings, "
-                "validate their experience, and show you are present. "
-                "Do NOT suggest exercises or practices."
+                "Right now: LISTEN. Reflect the user's feelings, "
+                "validate their experience, show you are present. "
+                "Do NOT suggest exercises yet."
             ),
             CoachingDecision.EXPLORE: (
-                "You are a curious coach. Ask open-ended questions to understand "
-                "the user's situation better. Be warm and non-judgmental."
+                "Right now: EXPLORE. Ask open-ended questions to understand "
+                "the user's situation better. Be warm and curious."
             ),
             CoachingDecision.SUGGEST: (
-                f"You are a proactive coach. Gently suggest practice "
-                f"'{practice_id}' as something that might help. Ask for consent "
-                f"before starting. Be warm and non-pressuring."
+                f"Right now: SUGGEST practice '{practice_id}'. "
+                f"Briefly explain what it does and why it fits. "
+                f"Ask for consent before starting. Be warm, not pushy."
             ),
             CoachingDecision.GUIDE: (
-                "You are a gentle coach. Acknowledge the user's feelings and "
-                "offer light psychoeducation or reframing. Do NOT push "
-                "specific exercises yet."
+                "Right now: GUIDE. Acknowledge feelings and offer light "
+                "psychoeducation or reframing. Don't push exercises yet."
             ),
             CoachingDecision.ANSWER: (
-                "You are a helpful assistant. Answer the user's question "
-                "directly and concisely."
+                "Right now: ANSWER the user's question directly and concisely."
             ),
         }
 
-        role_prompt = role_prompts.get(decision, role_prompts[CoachingDecision.LISTEN])
+        directive = decision_directives.get(decision, decision_directives[CoachingDecision.LISTEN])
+        fsm = self._get_fsm(user_id)
+
+        # Compile full system prompt from knowledge base + user context
+        kb_prompt = self._kb.compile(user_context={
+            "current_mode": fsm.soft_mode.value,
+            "safety_level": safety_level,
+            "last_practice": practice_id,
+            "session_history": dialogue_window[-5:],
+        })
 
         system_prompt = (
-            f"{role_prompt}\n\n"
-            f"Respond in {language}. Keep response to 1-3 sentences. "
-            f"You are a wellness support coach, NOT a therapist. "
-            f"Never diagnose or prescribe medication."
+            f"{kb_prompt}\n\n"
+            f"## Current directive\n\n"
+            f"{directive}\n\n"
+            f"Style: {style}. Respond in {language}. Keep response to 1-3 sentences."
         )
 
         # Build messages for the LLM

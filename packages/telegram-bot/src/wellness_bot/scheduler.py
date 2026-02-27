@@ -1,22 +1,29 @@
-"""Proactive check-in scheduler."""
+"""Proactive check-in scheduler with context-aware LLM-generated messages."""
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram import Bot
 
+from wellness_bot.coaching.knowledge_base import KnowledgeBaseCompiler
 from wellness_bot.session_store import SessionStore
 
 logger = logging.getLogger(__name__)
 
 
 class CheckInScheduler:
-    """Manages proactive check-ins for all users."""
+    """Manages proactive check-ins for all users.
 
-    # Rotating check-in messages to avoid repetition
+    When an LLM provider is available, generates context-aware check-in
+    messages based on the user's recent conversation history. Falls back
+    to rotating generic messages when no LLM or no conversation context.
+    """
+
+    # Rotating check-in messages (fallback when no LLM or no context)
     MOOD_CHECKINS = [
         "Как ты сейчас? (1-5)",
         "Как самочувствие? Одним словом",
@@ -30,17 +37,23 @@ class CheckInScheduler:
         self,
         bot: Bot,
         store: SessionStore,
-        default_interval_hours: float = 4.0,
+        default_interval_hours: float = 2.5,
         quiet_start: int = 23,
         quiet_end: int = 8,
+        llm_provider: object | None = None,
+        practices_dir: Path | str | None = None,
     ) -> None:
         self.bot = bot
         self.store = store
         self.default_interval = default_interval_hours
         self.quiet_start = quiet_start
         self.quiet_end = quiet_end
+        self._llm = llm_provider
         self._scheduler = AsyncIOScheduler()
         self._checkin_counter: dict[int, int] = {}  # user_id → rotation index
+        self._kb: KnowledgeBaseCompiler | None = None
+        if practices_dir:
+            self._kb = KnowledgeBaseCompiler(practices_dir)
 
     def _is_quiet_hour(self) -> bool:
         """Check if current time is within quiet hours."""
@@ -55,6 +68,44 @@ class CheckInScheduler:
         msg = self.MOOD_CHECKINS[idx % len(self.MOOD_CHECKINS)]
         self._checkin_counter[user_id] = idx + 1
         return msg
+
+    async def _get_conversation_summary(self, user_id: int) -> str | None:
+        """Get recent conversation context for LLM-generated check-in."""
+        try:
+            messages = await self.store.get_recent_messages(user_id, limit=10)
+        except Exception:
+            return None
+        if not messages:
+            return None
+        lines = []
+        for m in messages[-5:]:
+            role = m.get("role", "?")
+            content = str(m.get("content", ""))[:150]
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)
+
+    async def _generate_contextual_checkin(self, summary: str) -> str | None:
+        """Generate a context-aware check-in message using the LLM."""
+        if self._llm is None or self._kb is None:
+            return None
+        system = self._kb.compile_checkin_prompt()
+        prompt = (
+            f"Based on this recent conversation, generate a short (1-2 sentences) "
+            f"check-in message in the same language as the conversation. "
+            f"Be warm, direct, sometimes humorous. Not pushy.\n\n"
+            f"Recent context:\n{summary}\n\n"
+            f"Generate ONLY the check-in message, nothing else."
+        )
+        try:
+            response = await self._llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                system=system,
+                model="claude-haiku-4-5-20251001",
+            )
+            return response.content
+        except Exception:
+            logger.exception("LLM check-in generation failed, falling back to generic")
+            return None
 
     async def _run_checkin(self, user_id: int) -> None:
         """Execute a single check-in for one user."""
@@ -74,8 +125,16 @@ class CheckInScheduler:
             await self.store.update_user_state(user_id, missed_checkins=0, checkin_interval=24.0)
             return
 
-        # Send check-in
-        msg = self._next_checkin_message(user_id)
+        # Try context-aware LLM check-in first
+        msg = None
+        summary = await self._get_conversation_summary(user_id)
+        if summary:
+            msg = await self._generate_contextual_checkin(summary)
+
+        # Fallback to rotating generic message
+        if msg is None:
+            msg = self._next_checkin_message(user_id)
+
         try:
             await self.bot.send_message(user_id, msg)
             await self.store.increment_missed_checkins(user_id)

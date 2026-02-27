@@ -1,5 +1,5 @@
 # tests/test_rule_engine.py
-"""Tests for RuleEngine — deterministic practice selection."""
+"""Tests for RuleEngine — deterministic practice selection, no blocking."""
 import pytest
 from wellness_bot.protocol.rules import RuleEngine, PracticeCandidate
 from wellness_bot.protocol.types import (
@@ -12,77 +12,104 @@ def engine():
     return RuleEngine()
 
 
-class TestHardFilter:
-    def test_high_distress_blocks_cognitive(self, engine):
+class TestNoBlockingGates:
+    """Core principle: distress and caution never block practices."""
+
+    def test_high_distress_does_not_block(self, engine):
+        """High distress should NOT block cognitive practices."""
         candidates = engine.get_eligible(
             distress=9, cycle=MaintainingCycle.WORRY,
+            time_budget=10, readiness=Readiness.ACTION,
+        )
+        ids = {c["id"] for c in candidates}
+        # Previously blocked C1/C3 at distress 8+ — now allowed
+        assert "C1" in ids
+        assert "C2" in ids
+
+    def test_stabilization_boosted_at_high_distress(self, engine):
+        """At high distress, stabilization practices get score boost."""
+        result = engine.select(
+            distress=9, cycle=MaintainingCycle.RUMINATION,
             time_budget=5, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
+            technique_history={},
         )
-        ids = {c["id"] for c in candidates}
-        assert "C1" not in ids  # Socratic blocked at 8+
-        assert "C3" not in ids  # experiment blocked
-        assert "A3" in ids or "A2" in ids  # stabilization allowed
+        # Stabilization practices (A2, A3, U1-U6) should score higher
+        assert result.primary.practice_id in ("A2", "A3", "U1", "U2", "U3", "U4", "U5", "U6", "M2")
 
-    def test_low_distress_allows_all(self, engine):
-        candidates = engine.get_eligible(
-            distress=2, cycle=MaintainingCycle.AVOIDANCE,
-            time_budget=20, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
-        )
-        ids = {c["id"] for c in candidates}
-        assert "C3" in ids  # experiment allowed
-        assert "C1" in ids  # Socratic allowed
-
-    def test_2min_budget_limited(self, engine):
-        candidates = engine.get_eligible(
-            distress=5, cycle=MaintainingCycle.RUMINATION,
-            time_budget=2, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
-        )
-        ids = {c["id"] for c in candidates}
-        # All practices with dur_min <= 2 pass the time gate
-        assert ids.issubset({"U2", "M3", "A2", "A3", "A6", "M2"})
-        # Long practices excluded
-        assert "C3" not in ids
-        assert "A1" not in ids
-
-    def test_caution_elevated_blocks_exposure(self, engine):
+    def test_caution_does_not_block(self, engine):
+        """Caution level should NOT block any practices."""
         candidates = engine.get_eligible(
             distress=5, cycle=MaintainingCycle.AVOIDANCE,
             time_budget=20, readiness=Readiness.ACTION,
             caution=CautionLevel.ELEVATED,
         )
         ids = {c["id"] for c in candidates}
-        assert "C3" not in ids  # experiment blocked at elevated
-        assert "C1" not in ids  # Socratic (confrontational) blocked
+        # Previously blocked at elevated — now allowed
+        assert "C3" in ids
+        assert "C1" in ids
 
-    def test_precontemplation_only_basics(self, engine):
+
+class TestTimeAndReadinessFilters:
+    def test_2min_budget_limited(self, engine):
+        candidates = engine.get_eligible(
+            distress=5, cycle=MaintainingCycle.RUMINATION,
+            time_budget=2, readiness=Readiness.ACTION,
+        )
+        for c in candidates:
+            assert c["dur_min"] <= 2
+
+    def test_precontemplation_limited(self, engine):
         candidates = engine.get_eligible(
             distress=3, cycle=MaintainingCycle.RUMINATION,
             time_budget=10, readiness=Readiness.PRECONTEMPLATION,
-            caution=CautionLevel.NONE,
         )
         ids = {c["id"] for c in candidates}
-        assert ids.issubset({"M3", "U2"})
+        # Only universal + micro at precontemplation
+        for pid in ids:
+            assert pid in {"M3", "M4", "U1", "U2", "U3", "U4", "U5", "U6"}
+
+    def test_maintenance_unlocks_relapse(self, engine):
+        candidates = engine.get_eligible(
+            distress=3, cycle=MaintainingCycle.RUMINATION,
+            time_budget=20, readiness=Readiness.MAINTENANCE,
+        )
+        ids = {c["id"] for c in candidates}
+        assert "R1" in ids
+        assert "R2" in ids
+        assert "R3" in ids
+
+
+class TestCatalogCompleteness:
+    def test_catalog_has_30_practices(self, engine):
+        """Catalog should have all 30 practices."""
+        candidates = engine.get_eligible(
+            distress=3, cycle=MaintainingCycle.RUMINATION,
+            time_budget=30, readiness=Readiness.MAINTENANCE,
+        )
+        assert len(candidates) == 30
+
+    def test_insomnia_cycle_maps(self, engine):
+        result = engine.select(
+            distress=5, cycle=MaintainingCycle.INSOMNIA,
+            time_budget=10, readiness=Readiness.ACTION,
+            technique_history={},
+        )
+        assert result.primary.practice_id in ("B5", "A2")
 
 
 class TestScoring:
     def test_first_line_scores_higher(self, engine):
-        candidates = engine.select(
+        result = engine.select(
             distress=5, cycle=MaintainingCycle.RUMINATION,
             time_budget=10, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
             technique_history={},
         )
-        # A2 (first-line for rumination) should score higher than C1 (not matched)
-        assert candidates.primary.practice_id in ("A2", "A3", "M2")
+        assert result.primary.practice_id in ("A2", "A3", "M2")
 
     def test_returns_primary_and_backup(self, engine):
         result = engine.select(
             distress=5, cycle=MaintainingCycle.WORRY,
             time_budget=10, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
             technique_history={},
         )
         assert result.primary is not None
@@ -93,7 +120,6 @@ class TestScoring:
         result = engine.select(
             distress=5, cycle=MaintainingCycle.RUMINATION,
             time_budget=5, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
             technique_history={"A2": {"times_used": 10, "avg_effectiveness": 0}},
         )
         assert 0.0 <= result.primary.score <= 1.0
@@ -103,7 +129,6 @@ class TestScoring:
         result = engine.select(
             distress=5, cycle=MaintainingCycle.RUMINATION,
             time_budget=5, readiness=Readiness.ACTION,
-            caution=CautionLevel.NONE,
             technique_history={},
         )
         # M2 (rank=10), A2 (rank=15), A3 (rank=16) are all first-line for rumination

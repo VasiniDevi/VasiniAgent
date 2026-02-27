@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 
-_VALID_CATEGORIES = {"monitoring", "attention", "cognitive", "behavioral", "micro"}
+_VALID_CATEGORIES = {"monitoring", "attention", "cognitive", "behavioral", "micro", "relapse_prevention"}
 _VALID_UI_MODES = {"text", "buttons", "timer", "text_input"}
 _VALID_BUTTON_ACTIONS = {"next", "fallback", "branch_extended", "branch_help", "backup_practice", "end"}
 _REQUIRED_FALLBACK_KEYS = {"user_confused", "cannot_now", "too_hard"}

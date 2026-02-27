@@ -1,0 +1,61 @@
+id: A4
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Децентрация"
+name_en: "Decentering (MBCT)"
+category: attention
+goal: "Распознавание «мысли ≠ факты»; позиция наблюдателя"
+duration_min: 2
+duration_max: 3
+priority_rank: 17
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 2
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [self_criticism, rumination]
+
+steps:
+  - index: 1
+    instruction_ru: "Назовите мысль, которая сейчас крутится в голове."
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Просто напишите первую мысль, которая приходит. Любую. Это может быть даже «я не знаю, что написать»."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Попробуйте закончить фразу: «Прямо сейчас я думаю о...»"
+
+  - index: 2
+    instruction_ru: "Теперь скажите: «У меня есть мысль, что [ваша мысль]». Заметьте разницу — вы не мысль, вы тот, кто её наблюдает."
+    ui_mode: text
+    checkpoint: true
+    fallback:
+      user_confused: "Просто добавьте перед своей мыслью фразу «У меня есть мысль, что...». Это создаёт дистанцию между вами и мыслью."
+      cannot_now: "Хорошо, сам факт, что вы заметили мысль — уже шаг."
+      too_hard: "Это может казаться странным. Суть проста: мысль — это событие в голове, а не вы сами."
+
+  - index: 3
+    instruction_ru: "Понаблюдайте: мысль появилась, побыла — и что с ней произошло? Она ушла? Осталась? Изменилась?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Просто опишите, что произошло с мыслью за последнюю минуту. Она стала сильнее? Слабее? Или осталась такой же?"
+      cannot_now: "Не страшно. Главное — вы попробовали наблюдать, а не реагировать."
+      too_hard: "Давайте упростим: мысль всё ещё с вами или немного отпустило?"
+
+outcome:
+  pre_rating: {type: rating, label: "Слияние с мыслью до", scale: "0-10"}
+  post_rating: {type: rating, label: "Слияние с мыслью после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: A4
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

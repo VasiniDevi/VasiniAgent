@@ -1,0 +1,79 @@
+id: M1
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Дневник мыслей (ABCDE)"
+name_en: "Thought Diary (ABCDE)"
+category: monitoring
+goal: "Осознание связи ситуация → мысль → эмоция → поведение"
+duration_min: 5
+duration_max: 10
+priority_rank: 8
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 5
+  min_readiness: contemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "Опишите ситуацию: что произошло?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Вспомните последний момент, когда вам стало не по себе. Что происходило вокруг? Где вы были, что делали?"
+      cannot_now: "Не страшно, вернёмся к этому позже."
+      too_hard: "Давайте упростим: опишите одним предложением, что случилось."
+
+  - index: 2
+    instruction_ru: "Какая мысль возникла в этот момент?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Попробуйте вспомнить: что пронеслось в голове? Это может быть фраза, образ или даже ощущение."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Иногда мысль сложно поймать. Попробуйте закончить фразу: «Я подумал, что...»"
+
+  - index: 3
+    instruction_ru: "Какую эмоцию вы почувствовали? Оцените интенсивность 0-10."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Назовите эмоцию одним словом: тревога, грусть, злость, стыд, вина? И оцените от 0 (совсем нет) до 10 (максимум)."
+      cannot_now: "Хорошо, вернёмся к этому когда будете готовы."
+      too_hard: "Давайте упростим: вам было скорее плохо, нормально или хорошо?"
+
+  - index: 4
+    instruction_ru: "Что вы сделали?"
+    ui_mode: text_input
+    checkpoint: false
+    fallback:
+      user_confused: "Какое действие вы предприняли после этой мысли? Может, избежали чего-то, или наоборот — сделали что-то импульсивное?"
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Опишите одним словом: избегал, терпел, действовал, замер?"
+
+  - index: 5
+    instruction_ru: "Какой был результат?"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "К чему привело ваше действие? Стало лучше, хуже, или ничего не изменилось?"
+      cannot_now: "Ничего, главное — вы заметили цепочку."
+      too_hard: "Просто отметьте: помогло или не помогло то, что вы сделали?"
+
+outcome:
+  pre_rating: {type: rating, label: "Осознанность связи мысль-эмоция", scale: "0-10"}
+  post_rating: {type: rating, label: "Осознанность связи мысль-эмоция после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: M1
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

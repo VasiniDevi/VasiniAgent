@@ -1,4 +1,7 @@
-"""Tests for CoachPolicyEngine decision logic."""
+"""Tests for CoachPolicyEngine decision logic.
+
+Key change: crisis/red safety NEVER blocks — agent always helps.
+"""
 
 from wellness_bot.coaching.coach_policy import (
     EXPLORE_CONFIDENCE_THRESHOLD,
@@ -58,6 +61,51 @@ def _practices(score: float = 0.8) -> list[PracticeCandidateRanked]:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
+
+class TestCrisisNeverBlocks:
+    """Rule 1: crisis/red → agent HELPS (suggest or explore), never just listen."""
+
+    def test_crisis_with_practices_suggests(self) -> None:
+        engine = CoachPolicyEngine()
+        result = engine.decide(
+            context=_ctx(risk="crisis", confidence=0.9, anxiety=0.9),
+            opportunity=_opp(score=0.9, allow=True),
+            ranked_practices=_practices(score=0.9),
+        )
+        # Agent helps with a practice even in crisis
+        assert result.decision == CoachingDecision.SUGGEST
+        assert result.selected_practice_id == "box_breathing"
+        assert result.style == "warm_supportive"
+
+    def test_crisis_without_practices_explores(self) -> None:
+        engine = CoachPolicyEngine()
+        result = engine.decide(
+            context=_ctx(risk="crisis", confidence=0.9, anxiety=0.9),
+            opportunity=_opp(score=0.9, allow=True),
+            ranked_practices=[],
+        )
+        # No practices available → explore (not just listen)
+        assert result.decision == CoachingDecision.EXPLORE
+        assert result.style == "warm_supportive"
+
+    def test_red_level_helps(self) -> None:
+        engine = CoachPolicyEngine()
+        result = engine.decide(
+            context=_ctx(risk="red", confidence=0.9, anxiety=0.9),
+            opportunity=_opp(score=0.9, allow=True),
+            ranked_practices=_practices(score=0.9),
+        )
+        assert result.decision == CoachingDecision.SUGGEST
+
+    def test_high_risk_helps(self) -> None:
+        engine = CoachPolicyEngine()
+        result = engine.decide(
+            context=_ctx(risk="high", confidence=0.9, anxiety=0.9),
+            opportunity=_opp(score=0.9, allow=True),
+            ranked_practices=_practices(score=0.9),
+        )
+        assert result.decision == CoachingDecision.SUGGEST
 
 
 class TestSuggestWhenOpportunityHighAndPracticeStrong:
@@ -129,34 +177,7 @@ class TestExploreWhenLowConfidence:
             opportunity=_opp(score=0.8, allow=True),
             ranked_practices=_practices(score=0.8),
         )
-        # 0.5 is NOT < 0.5, so should not be EXPLORE for low confidence
         assert result.decision != CoachingDecision.EXPLORE or result.style != "warm_curious"
-
-
-class TestCrisisForcesListen:
-    """Rule 1: crisis -> LISTEN, no practice."""
-
-    def test_crisis_listen(self) -> None:
-        engine = CoachPolicyEngine()
-        result = engine.decide(
-            context=_ctx(risk="crisis", confidence=0.9, anxiety=0.9),
-            opportunity=_opp(score=0.9, allow=True),
-            ranked_practices=_practices(score=0.9),
-        )
-        assert result.decision == CoachingDecision.LISTEN
-        assert result.selected_practice_id is None
-        assert result.style == "warm_supportive"
-
-    def test_high_risk_listen(self) -> None:
-        engine = CoachPolicyEngine()
-        result = engine.decide(
-            context=_ctx(risk="high", confidence=0.9, anxiety=0.9),
-            opportunity=_opp(score=0.9, allow=True),
-            ranked_practices=_practices(score=0.9),
-        )
-        assert result.decision == CoachingDecision.LISTEN
-        assert result.selected_practice_id is None
-        assert result.style == "warm_supportive"
 
 
 class TestAnswerWhenNoSignalNoPractices:
@@ -204,11 +225,6 @@ class TestDefaultListen:
 
     def test_default_listen(self) -> None:
         engine = CoachPolicyEngine()
-        # Low signal, but has practices (so rule 2 doesn't fire),
-        # high confidence (rule 3 doesn't fire),
-        # allow=True (rule 4 doesn't fire),
-        # practice score below threshold (rule 5 doesn't fire),
-        # max_signal <= 0.3 (rule 6 doesn't fire).
         result = engine.decide(
             context=_ctx(confidence=0.8, anxiety=0.2),
             opportunity=_opp(score=0.5, allow=True),

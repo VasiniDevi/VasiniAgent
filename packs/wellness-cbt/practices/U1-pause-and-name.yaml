@@ -1,0 +1,52 @@
+id: U1
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Пауза и имя"
+name_en: "Pause and Name"
+category: micro
+goal: "Прервать автопилот и назвать текущее состояние"
+duration_min: 1
+duration_max: 1
+priority_rank: 2
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: []
+
+steps:
+  - index: 1
+    instruction_ru: "СТОП. Пауза."
+    ui_mode: text
+    checkpoint: false
+    fallback:
+      user_confused: "Просто остановитесь на секунду. Не нужно ничего делать — просто замрите."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Одна секунда. Просто вдох."
+
+  - index: 2
+    instruction_ru: "Что вы чувствуете прямо сейчас? Назовите одним словом."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Любое слово: тревога, спокойствие, раздражение, усталость, ничего. Первое, что приходит."
+      cannot_now: "Не страшно. Сама пауза уже сработала."
+      too_hard: "Просто выберите: мне сейчас скорее плохо, нормально или хорошо?"
+
+outcome:
+  pre_rating: {type: rating, label: "Автопилот до", scale: "0-10"}
+  post_rating: {type: rating, label: "Осознанность после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U1
+  version: "1.0"
+  step_schema_hash: "sha256:v1"

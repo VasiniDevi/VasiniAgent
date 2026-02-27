@@ -1,0 +1,52 @@
+id: U6
+version: "1.0"
+step_schema_hash: "sha256:v1"
+name_ru: "Одно действие"
+name_en: "One-Step Action"
+category: micro
+goal: "Разрыв цикла избегания через одно минимальное действие"
+duration_min: 1
+duration_max: 2
+priority_rank: 9
+
+prerequisites:
+  needs_formulation: false
+  min_time_budget: 1
+  min_readiness: precontemplation
+
+safety_overrides:
+  blocked_in_caution_elevated: false
+  blocked_if_distress_gte: null
+
+maintaining_cycles: [avoidance, rumination]
+
+steps:
+  - index: 1
+    instruction_ru: "Какое самое маленькое действие можно сделать прямо сейчас? (буквально 1 минуту)"
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Подумайте: что вы откладываете? Теперь уменьшите это в 10 раз. Открыть файл. Написать одно предложение. Надеть кроссовки."
+      cannot_now: "Не страшно, попробуем позже."
+      too_hard: "Ещё меньше: встать, налить воды, открыть приложение. Буквально один жест."
+
+  - index: 2
+    instruction_ru: "Сделайте его. Прямо сейчас. Потом вернитесь и напишите что произошло."
+    ui_mode: text_input
+    checkpoint: true
+    fallback:
+      user_confused: "Не думайте — просто сделайте то маленькое действие. Потом вернитесь и напишите: получилось или нет."
+      cannot_now: "Хорошо. Запомните это действие — сделайте, когда будет момент."
+      too_hard: "Если даже минимальное действие кажется невозможным — это информация. Напишите: что мешает?"
+
+outcome:
+  pre_rating: {type: rating, label: "Уровень избегания до", scale: "0-10"}
+  post_rating: {type: rating, label: "Уровень избегания после", scale: "0-10"}
+  completed: true
+  drop_reason: null
+  tracking: null
+
+resume_compatibility:
+  practice_id: U6
+  version: "1.0"
+  step_schema_hash: "sha256:v1"
